@@ -1735,14 +1735,14 @@ function App() {
       // Check if category has children
       const children = categories.filter((c: Category) => c.parentId === cat.id);
       if (children.length > 0) {
-        // If has children, expand/collapse and select first child
+        // 有子分类：展开/收起二级菜单并选中第一个子分类。
+        // 移动端不再关闭侧边栏，否则刚展开的二级菜单会随抽屉一起消失（表现为"自动收回"）。
         toggleCategoryExpand(cat.id);
-        // Select the first child instead of the parent
         setSelectedCategory(children[0].id);
-      } else {
-        // If no children, select the category itself
-        setSelectedCategory(cat.id);
+        return;
       }
+      // 叶子分类：选中并关闭移动端侧边栏
+      setSelectedCategory(cat.id);
       setSidebarOpen(false);
   };
 
@@ -2680,7 +2680,7 @@ function App() {
       {/* Sidebar */}
       <aside
         className={`
-          fixed lg:static inset-y-0 left-0 z-30 w-64 lg:w-48 xl:w-64 transform transition-transform duration-300 ease-in-out
+          fixed lg:static inset-y-0 left-0 z-30 w-64 max-w-[82vw] lg:w-56 xl:w-64 transform transition-transform duration-300 ease-in-out
           bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
@@ -3094,7 +3094,7 @@ function App() {
                     </div>
                  )}
 
-                 <div className="flex items-center justify-between mb-4">
+                 <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
                      <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
                          {selectedCategory === 'all'
                             ? (searchQuery ? '搜索结果' : '所有链接')
@@ -3111,7 +3111,7 @@ function App() {
                      </h2>
                      {selectedCategory !== 'all' && !isCategoryLocked(selectedCategory) && (
                          isSortingMode === selectedCategory ? (
-                             <div className="flex gap-2">
+                             <div className="flex flex-wrap gap-2">
                                  <button
                                      onClick={saveSorting}
                                      className="flex items-center gap-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-full transition-colors cursor-pointer"
@@ -3129,7 +3129,7 @@ function App() {
                                  </button>
                              </div>
                          ) : authToken && (
-                             <div className="flex gap-2">
+                             <div className="flex flex-wrap gap-2">
                                  <button
                                      onClick={() => { setIsModalOpen(true); }}
                                      className="flex items-center gap-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-full transition-colors cursor-pointer"
