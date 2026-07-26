@@ -1,3 +1,4 @@
 {
-  "functionsDirectory": "functions"
+  "functionsDirectory": "functions",
+  "installCommand": "npm install"
 }
