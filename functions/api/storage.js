@@ -1,8 +1,12 @@
-// 统一配置接口
 // EdgeOne Pages Function for Storage API
-// Migrated from Cloudflare Workers storage.ts
+// 已从 KV (CLOUDNAV_KV) 迁移到 Blob 存储 (@edgeone/pages-blob)
+// Blob 无需在控制台开通命名空间/绑定项目，首次 getStore 自动创建
 
-// 存储键常量
+import { getStore } from '@edgeone/pages-blob';
+
+const STORE_NAME = 'cloudnav';
+
+// 存储键常量（与 KV 版保持一致，原样复用）
 const STORAGE_KEYS = {
   CONFIG_KEY: 'config',
   SEARCH_CONFIG_KEY: 'search_config',
@@ -10,15 +14,29 @@ const STORAGE_KEYS = {
   LINKS_CONFIG_KEY: 'links_config',
 };
 
-// 统一的响应头
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, x-auth-password',
 };
 
+// 校验 token：写后强一致读取，并判断过期时间（Blob 无 TTL，过期时间存在 value 里）
+async function verifyToken(store, providedPassword) {
+  if (!providedPassword) return false;
+  try {
+    const rec = await store.get(`auth_token:${providedPassword}`, { type: 'json', consistency: 'strong' });
+    if (rec && rec.valid && (!rec.expiresAt || rec.expiresAt > Date.now())) {
+      return true;
+    }
+  } catch (e) {
+    // ignore parse error
+  }
+  return false;
+}
+
 export async function onRequest(context) {
   const { request, env } = context;
+  const store = getStore(STORE_NAME);
   const url = new URL(request.url);
 
   // Handle OPTIONS request for CORS
@@ -35,13 +53,6 @@ export async function onRequest(context) {
       const checkAuth = url.searchParams.get('checkAuth');
       const getConfig = url.searchParams.get('getConfig');
       const key = url.searchParams.get('key');
-      
-      // console.log('Storage API GET request:', {
-      //   url: request.url,
-      //   hasKV: !!env.CLOUDNAV_KV,
-      //   hasPassword: !!env.PASSWORD,
-      //   searchParams: Object.fromEntries(url.searchParams)
-      // });
 
       // Check Auth
       if (checkAuth === 'true') {
@@ -54,10 +65,10 @@ export async function onRequest(context) {
           headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
       }
-      
+
       // Get Config
       if (['ai', 'website', 'search', 'mastodon', 'weather'].includes(getConfig)) {
-        const unifiedConfigStr = await CLOUDNAV_KV.get('config');
+        const unifiedConfigStr = await store.get('config');
         const config = unifiedConfigStr ? JSON.parse(unifiedConfigStr) : {};
 
         let response = {};
@@ -71,7 +82,7 @@ export async function onRequest(context) {
           headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
       }
-      
+
       // Get Favicon
       if (getConfig === 'favicon') {
         const domain = url.searchParams.get('domain');
@@ -81,16 +92,16 @@ export async function onRequest(context) {
             headers: { 'Content-Type': 'application/json', ...corsHeaders },
           });
         }
-        
-        const cachedIcon = await CLOUDNAV_KV.get(`favicon:${domain}`);
+
+        const cachedIcon = await store.get(`favicon:${domain}`);
         return new Response(JSON.stringify({ icon: cachedIcon || null, cached: !!cachedIcon }), {
           headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
       }
-      
+
       // Get Categories
       if (getConfig === 'categories') {
-        const categoriesData = await CLOUDNAV_KV.get(STORAGE_KEYS.CATEGORIES_CONFIG_KEY);
+        const categoriesData = await store.get(STORAGE_KEYS.CATEGORIES_CONFIG_KEY);
         return new Response(categoriesData || '[]', {
           headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
@@ -98,7 +109,7 @@ export async function onRequest(context) {
 
       // Get Links
       if (getConfig === 'links') {
-        const linksData = await CLOUDNAV_KV.get(STORAGE_KEYS.LINKS_CONFIG_KEY);
+        const linksData = await store.get(STORAGE_KEYS.LINKS_CONFIG_KEY);
         return new Response(linksData || '[]', {
           headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
@@ -107,12 +118,12 @@ export async function onRequest(context) {
       // Read by Key
       if (key) {
         if (key === STORAGE_KEYS.CONFIG_KEY) {
-          const config = await CLOUDNAV_KV.get('config');
+          const config = await store.get('config');
           return new Response(JSON.stringify({ key, value: config || '{}' }), {
             headers: { 'Content-Type': 'application/json', ...corsHeaders },
           });
         }
-        const value = await CLOUDNAV_KV.get(key);
+        const value = await store.get(key);
         return new Response(JSON.stringify({ key, value }), {
           headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
@@ -120,8 +131,8 @@ export async function onRequest(context) {
 
       // Get All Data
       if (getConfig === 'true') {
-        const linksData = await CLOUDNAV_KV.get(STORAGE_KEYS.LINKS_CONFIG_KEY);
-        const categoriesData = await CLOUDNAV_KV.get(STORAGE_KEYS.CATEGORIES_CONFIG_KEY);
+        const linksData = await store.get(STORAGE_KEYS.LINKS_CONFIG_KEY);
+        const categoriesData = await store.get(STORAGE_KEYS.CATEGORIES_CONFIG_KEY);
 
         const combinedData = {
           links: linksData ? JSON.parse(linksData) : [],
@@ -168,7 +179,8 @@ export async function onRequest(context) {
               headers: { 'Content-Type': 'application/json', ...corsHeaders },
             });
           }
-          await CLOUDNAV_KV.put(`favicon:${domain}`, icon, { expirationTtl: 30 * 24 * 60 * 60 });
+          // Blob 没有 expirationTtl，favicon 直接永久缓存（图标基本不变）
+          await store.set(`favicon:${domain}`, icon);
           return new Response(JSON.stringify({ success: true }), {
             headers: { 'Content-Type': 'application/json', ...corsHeaders },
           });
@@ -180,11 +192,7 @@ export async function onRequest(context) {
       if (serverPassword && providedPassword === serverPassword) {
         isAuthenticated = true;
       } else if (providedPassword) {
-        // Check if it is a valid token
-        const tokenVal = await CLOUDNAV_KV.get(`auth_token:${providedPassword}`);
-        if (tokenVal === 'valid') {
-          isAuthenticated = true;
-        }
+        isAuthenticated = await verifyToken(store, providedPassword);
       }
 
       if (!isAuthenticated) {
@@ -196,20 +204,20 @@ export async function onRequest(context) {
 
       // Auth Only Check
       if (body.authOnly) {
-        await CLOUDNAV_KV.put('last_auth_time', Date.now().toString());
+        await store.set('last_auth_time', Date.now().toString());
         return new Response(JSON.stringify({ success: true }), {
           headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
       }
-  
+
       // Save Config (Search, AI, Website, Mastodon, Weather)
       if (['search', 'ai', 'website', 'mastodon', 'weather'].includes(body.saveConfig)) {
         let unifiedConfig = {};
-        const existingConfig = await CLOUDNAV_KV.get('config');
+        const existingConfig = await store.get('config');
         if (existingConfig) unifiedConfig = JSON.parse(existingConfig);
 
         unifiedConfig[body.saveConfig] = body.config;
-        await CLOUDNAV_KV.put('config', JSON.stringify(unifiedConfig));
+        await store.set('config', JSON.stringify(unifiedConfig));
 
         return new Response(JSON.stringify({ success: true }), {
           headers: { 'Content-Type': 'application/json', ...corsHeaders },
@@ -218,7 +226,7 @@ export async function onRequest(context) {
 
       // Save Categories
       if (body.saveConfig === 'categories') {
-        await CLOUDNAV_KV.put(STORAGE_KEYS.CATEGORIES_CONFIG_KEY, JSON.stringify(body.categories));
+        await store.set(STORAGE_KEYS.CATEGORIES_CONFIG_KEY, JSON.stringify(body.categories));
         return new Response(JSON.stringify({ success: true }), {
           headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
@@ -226,15 +234,15 @@ export async function onRequest(context) {
 
       // Save Links
       if (body.saveConfig === 'links') {
-        await CLOUDNAV_KV.put(STORAGE_KEYS.LINKS_CONFIG_KEY, JSON.stringify(body.links));
+        await store.set(STORAGE_KEYS.LINKS_CONFIG_KEY, JSON.stringify(body.links));
         return new Response(JSON.stringify({ success: true }), {
           headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
       }
 
-      // Sync To KV (Unified Config)
+      // Sync To Blob (Unified Config)
       if (body.key === STORAGE_KEYS.CONFIG_KEY && body.value) {
-        await CLOUDNAV_KV.put('config', body.value);
+        await store.set('config', body.value);
         return new Response(JSON.stringify({ success: true }), {
           headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
@@ -242,18 +250,18 @@ export async function onRequest(context) {
 
       // Save Combined Links and Categories
       if (body.links && body.categories) {
-        await CLOUDNAV_KV.put(STORAGE_KEYS.LINKS_CONFIG_KEY, JSON.stringify(body.links));
-        await CLOUDNAV_KV.put(STORAGE_KEYS.CATEGORIES_CONFIG_KEY, JSON.stringify(body.categories));
+        await store.set(STORAGE_KEYS.LINKS_CONFIG_KEY, JSON.stringify(body.links));
+        await store.set(STORAGE_KEYS.CATEGORIES_CONFIG_KEY, JSON.stringify(body.categories));
         return new Response(JSON.stringify({ success: true }), {
           headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
       } else if (body.links) {
-        await CLOUDNAV_KV.put(STORAGE_KEYS.LINKS_CONFIG_KEY, JSON.stringify(body.links));
+        await store.set(STORAGE_KEYS.LINKS_CONFIG_KEY, JSON.stringify(body.links));
         return new Response(JSON.stringify({ success: true }), {
           headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
       } else if (body.categories) {
-        await CLOUDNAV_KV.put(STORAGE_KEYS.CATEGORIES_CONFIG_KEY, JSON.stringify(body.categories));
+        await store.set(STORAGE_KEYS.CATEGORIES_CONFIG_KEY, JSON.stringify(body.categories));
         return new Response(JSON.stringify({ success: true }), {
           headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
@@ -268,7 +276,7 @@ export async function onRequest(context) {
       console.error(err);
       return new Response(JSON.stringify({ error: 'Failed to save data' }), {
         status: 500,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        headers: corsHeaders,
       });
     }
   }

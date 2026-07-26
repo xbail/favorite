@@ -1,8 +1,11 @@
+// 调试用：检测 Blob 存储是否可用（替代原 KV 检测）
+import { getStore } from '@edgeone/pages-blob';
+
 export async function onRequest(context) {
   const result = {
     message: 'Debug Info',
     envKeys: {},
-    globalKV: 'Not Found'
+    blobStore: 'Not Found'
   };
 
   try {
@@ -14,17 +17,15 @@ export async function onRequest(context) {
       }
     }
 
-    // Check Global KV (CLOUDNAV_KV)
+    // Check Blob Store
     try {
-      if (typeof CLOUDNAV_KV !== 'undefined') {
-        result.globalKV = 'Present (Global)';
-        // test read
-        // const test = await CLOUDNAV_KV.get('test_key');
-      } else {
-         result.globalKV = 'Undefined';
-      }
+      const store = getStore('cloudnav');
+      result.blobStore = 'Present';
+      const { blobs } = await store.list({ consistency: 'strong' });
+      result.blobCount = blobs.length;
+      result.blobKeys = blobs.map(b => b.key);
     } catch (e) {
-      result.globalKV = `Error: ${e.message}`;
+      result.blobStore = `Error: ${e.message}`;
     }
 
     return new Response(JSON.stringify(result, null, 2), {
@@ -37,7 +38,7 @@ export async function onRequest(context) {
       message: e.message,
       stack: e.stack
     }), {
-      status: 200, 
+      status: 200,
       headers: { 'Content-Type': 'application/json' }
     });
   }

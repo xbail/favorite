@@ -1,5 +1,10 @@
 // EdgeOne Pages Function for Auth
-// Migrated from Cloudflare Workers auth.ts
+// 已从 KV 迁移到 Blob 存储 (@edgeone/pages-blob)
+// 注意：Blob 的 set 不支持 expirationTtl，token 过期时间写入 value 自行判断
+
+import { getStore } from '@edgeone/pages-blob';
+
+const STORE_NAME = 'cloudnav';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -10,6 +15,7 @@ const corsHeaders = {
 
 export async function onRequest(context) {
   const { request, env } = context;
+  const store = getStore(STORE_NAME);
 
   if (request.method === 'OPTIONS') {
     return new Response(null, {
@@ -45,9 +51,9 @@ export async function onRequest(context) {
       const token = btoa(`${env.PASSWORD}:${Date.now()}`);
 
       // Calculate Expiration based on Config
-      let expirationTtl = 24 * 60 * 60; // Default 1 day
+      let expirationTtl = 24 * 60 * 60; // Default 1 day (seconds)
       try {
-        const unifiedConfigStr = await CLOUDNAV_KV.get('config');
+        const unifiedConfigStr = await store.get('config');
         if (unifiedConfigStr) {
           const unifiedConfig = JSON.parse(unifiedConfigStr);
           const expiryConfig = unifiedConfig.website?.passwordExpiry;
@@ -66,11 +72,11 @@ export async function onRequest(context) {
       }
 
       // Record auth time
-      await CLOUDNAV_KV.put('last_auth_time', Date.now().toString());
+      await store.set('last_auth_time', Date.now().toString());
 
-      // Store token
-      const kvOptions = expirationTtl ? { expirationTtl } : {};
-      await CLOUDNAV_KV.put(`auth_token:${token}`, 'valid', kvOptions);
+      // Store token. Blob has no TTL: encode expiry into value, verified on read.
+      const expiresAt = expirationTtl ? Date.now() + expirationTtl * 1000 : null;
+      await store.set(`auth_token:${token}`, JSON.stringify({ valid: true, expiresAt }));
 
       return new Response(JSON.stringify({
         success: true,
