@@ -2,14 +2,14 @@
 
 > 本项目完全由 AI 生成，我对项目中的代码一无所知。您可自由修改演绎。
 
-**蜗牛个人导航**是一个基于 **React** + **Tailwind CSS** 构建的现代化云端导航/书签管理页面，专为 **Tencent Cloud EdgeOne Pages** 设计。它利用 EdgeOne Pages Functions 和 KV 存储，提供了一个无需维护服务器的 Serverless 导航解决方案。
+**蜗牛个人导航**是一个基于 **React** + **Tailwind CSS** 构建的现代化云端导航/书签管理页面，专为 **Tencent Cloud EdgeOne Pages** 设计。它利用 EdgeOne Pages Functions 和 Blob 存储（无需开通 KV 命名空间），提供了一个无需维护服务器的 Serverless 导航解决方案。
 
 ![CloudNav Screenshot](screenshots/preview.png)
 
 ## ✨ 特性
 
 - **Serverless 架构**：完全运行在边缘节点，无需服务器。
-- **KV 数据存储**：配置、分类和链接数据均存储在 EdgeOne KV 中，读写速度快。
+- **Blob 数据存储**：配置、分类和链接数据均存储在 EdgeOne Blob 中，无需开通/绑定 KV 命名空间，首次访问自动创建。
 - **安全管理**：
     - 后台管理通过 `PASSWORD` 环境变量保护。
     - 动态 Token 鉴权，支持自定义过期时间。
@@ -32,8 +32,8 @@
 
 ### 前置要求
 
-1.  腾讯云账号并开通 EdgeOne 服务。
-2.  新建一个 `KV`，`命名空间名称` 随意，但绑定的变量名称必须为`CLOUDNAV_KV`（或修改代码适配名称）。
+1.  腾讯云账号并开通 EdgeOne 服务（Makers / Pages）。
+2.  无需开通 KV；本项目使用 EdgeOne Blob 存储，命名空间在首次访问时自动创建。
 
 ### 部署
 
@@ -46,19 +46,15 @@
 - 根目录：`./`
 - 输出目录：`./dist`
 - 编译命令：`npm run build`
-- 安装命令：`npm install`
+- 安装命令：`npm install`（已包含 `@edgeone/pages-blob` 依赖）
 
 #### 环境变量
 
-- `PASSWORD`：前端登录密码。
+- `PASSWORD`：前端登录密码（管理员登录用）。
 
-### 绑定 KV
+### 存储说明（Blob 存储）
 
-1. 点击左侧 `KV 存储`
-2. 绑定命名空间
-
-- 变量名称：`CLOUDNAV_KV`（如果没有修改代码，此处必须为`CLOUDNAV_KV`）
-- 命名空间：选择前置要求中新建的命名空间
+本项目使用 EdgeOne Blob 存储（`@edgeone/pages-blob`），**无需在控制台手动开通或绑定 KV 命名空间**。首次触发 Functions 请求时，平台会自动创建名为 `cloudnav` 的 Blob 命名空间，所有配置、分类、链接与图标缓存都持久化在其中。
 
 3. 重新部署
 

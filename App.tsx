@@ -2982,6 +2982,22 @@ function App() {
         {/* Content Scroll Area */}
         <div className="flex-1 overflow-y-auto p-4 lg:p-8 space-y-8">
 
+            {/* 简洁模式首页 Hero */}
+            {!searchQuery && selectedCategory === 'all' && (
+              <div className="mb-8 flex flex-col items-center text-center sm:items-start sm:text-left">
+                <div className="inline-flex items-center gap-2 px-3 py-1 mb-3 rounded-full bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-300 text-xs font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                  简洁模式
+                </div>
+                <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-slate-800 via-slate-900 to-slate-700 dark:from-white dark:via-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
+                  {aiConfig?.websiteTitle || '我的导航'}
+                </h1>
+                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                  {links.length} 个常用链接 · {categories.length} 个分类，一处直达
+                </p>
+              </div>
+            )}
+
             {/* 1. Pinned Area (Custom Top Area) */}
             {pinnedLinks.length > 0 && showPinnedWebsites && !searchQuery && (selectedCategory === 'all') && (
                 <section>
@@ -3069,14 +3085,12 @@ function App() {
             {(selectedCategory !== 'all' || searchQuery) && (
             <section>
                  {(!pinnedLinks.length && !searchQuery && selectedCategory === 'all') && (
-                    <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg flex items-center justify-between">
+                    <div className="mb-6 p-5 rounded-2xl bg-white/70 dark:bg-slate-800/60 backdrop-blur-md border border-white/40 dark:border-slate-700/50 shadow-sm flex items-center justify-between">
                          <div>
-                            <h1 className="text-xl font-bold">早安 👋</h1>
-                            <p className="text-sm opacity-90 mt-1">
-                                {links.length} 个链接 · {categories.length} 个分类
-                            </p>
+                            <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100">早安 👋</h1>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">今天也高效地出发吧</p>
                          </div>
-                         <Icon name="Compass" size={48} className="opacity-20" />
+                         <Icon name="Compass" size={48} className="text-blue-500/30 dark:text-blue-400/30" />
                     </div>
                  )}
 
