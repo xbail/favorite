@@ -2836,15 +2836,11 @@ function App() {
         {/* Content Scroll Area */}
         <div className="flex-1 overflow-y-auto p-4 lg:p-8 space-y-8">
 
-            {/* 简洁模式首页 Hero */}
+            {/* 首页 Hero */}
             {!searchQuery && selectedCategory === 'all' && (
               <div className="mb-8 flex flex-col items-center text-center sm:items-start sm:text-left">
-                <div className="inline-flex items-center gap-2 px-3 py-1 mb-3 rounded-full bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-300 text-xs font-medium">
-                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-                  简洁模式
-                </div>
                 <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-slate-800 via-slate-900 to-slate-700 dark:from-white dark:via-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
-                  {aiConfig?.websiteTitle || '我的导航'}
+                  {aiConfig?.navigationName || aiConfig?.websiteTitle || '蜗牛导航'}
                 </h1>
                 <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
                   {links.length} 个常用链接 · {categories.length} 个分类，一处直达
@@ -3152,23 +3148,17 @@ function App() {
             {selectedCategory === 'all' && !searchQuery && (
               <section className="space-y-8">
                 {(() => {
-                  const categoryTree = buildCategoryTree(categories);
-                  if (categoryTree.length === 0) {
+                  // 直接用 categories 数组，不依赖 buildCategoryTree
+                  if (!categories || categories.length === 0) {
                     return (
                       <div className="text-center py-10 text-slate-400">
                         <p className="text-sm">暂无分类，请登录后在设置中添加分类</p>
                       </div>
                     );
                   }
-                  // 显示所有顶级分类（即使没有链接也显示）
-                  return categoryTree.map(cat => {
+                  // 显示所有分类（即使没有链接也显示）
+                  return categories.map(cat => {
                     const catLinks = links.filter(l => l.categoryId === cat.id && !l.pinned);
-                    // 也包含子分类的链接
-                    const childIds = (cat.children || []).map((c: any) => c.id);
-                    const allLinks = [
-                      ...catLinks,
-                      ...links.filter(l => childIds.includes(l.categoryId) && !l.pinned)
-                    ];
                     return (
                       <div key={cat.id}>
                         <div className="flex items-center justify-between mb-3">
@@ -3178,13 +3168,13 @@ function App() {
                           >
                             <Icon name={cat.icon || 'Folder'} size={16} />
                             <span>{cat.name}</span>
-                            {allLinks.length > 0 && (
+                            {catLinks.length > 0 && (
                               <span className="px-2 py-0.5 text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-full">
-                                {allLinks.length}
+                                {catLinks.length}
                               </span>
                             )}
                           </button>
-                          {allLinks.length > 0 && (
+                          {catLinks.length > 0 && (
                             <button
                               onClick={() => { setSelectedCategory(cat.id); setSidebarOpen(false); }}
                               className="text-xs text-slate-400 hover:text-blue-500 cursor-pointer"
@@ -3193,9 +3183,9 @@ function App() {
                             </button>
                           )}
                         </div>
-                        {allLinks.length > 0 ? (
+                        {catLinks.length > 0 ? (
                           <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-                            {allLinks.slice(0, 12).map(link => renderLinkCard(link))}
+                            {catLinks.slice(0, 12).map(link => renderLinkCard(link))}
                           </div>
                         ) : (
                           <p className="text-xs text-slate-400 py-2">暂无链接</p>

@@ -28,7 +28,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     isOpen, onClose, config, onSave, links, onUpdateLinks, passwordExpiryConfig, onSavePasswordExpiry, authToken, showPinnedWebsites, onShowPinnedWebsitesChange, mastodonConfig, onMastodonConfigChange, weatherConfig, onWeatherConfigChange, onImportClick, onBackupClick
 }) => {
   console.log('SettingsModal rendering. isOpen:', isOpen, 'authToken:', authToken, 'config:', config);
-  const [activeTab, setActiveTab] = useState<'tools' | 'website' | 'review'>('website');
+  const [activeTab, setActiveTab] = useState<'tools' | 'website'>('website');
   const [localConfig, setLocalConfig] = useState<AIConfig>(config || {});
   const [localPasswordExpiryConfig, setLocalPasswordExpiryConfig] = useState<PasswordExpiryConfig>(passwordExpiryConfig || { value: 1, unit: 'week' });
   const [localMastodonConfig, setLocalMastodonConfig] = useState<MastodonConfig>(mastodonConfig || { enabled: false });
@@ -55,101 +55,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const [authPassword, setAuthPassword] = useState('');
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
-
-  // ===== 申请审核 State =====
-  const [pendingSubmissions, setPendingSubmissions] = useState<any[]>([]);
-  const [loadingPending, setLoadingPending] = useState(false);
-  const [reviewCategories, setReviewCategories] = useState<any[]>([]);
-  const [processingId, setProcessingId] = useState<string | null>(null);
-
-  // 加载待审核申�?
-  const loadPendingSubmissions = async () => {
-    if (!authToken) return;
-    setLoadingPending(true);
-    try {
-      const res = await fetch('/api/storage', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-auth-password': authToken },
-        body: JSON.stringify({ operation: 'listPending' }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setPendingSubmissions(Array.isArray(data) ? data : []);
-      }
-    } catch (e) {
-      console.error('加载待审核申请失�?:', e);
-    } finally {
-      setLoadingPending(false);
-    }
-  };
-
-  // 加载分类列表（审核时选择目标分类�?
-  const loadReviewCategories = async () => {
-    try {
-      const res = await fetch('/api/storage?getConfig=categories');
-      if (res.ok) {
-        const data = await res.json();
-        setReviewCategories(Array.isArray(data) ? data : []);
-      }
-    } catch (e) {
-      console.error('加载分类失败:', e);
-    }
-  };
-
-  // 通过审核
-  const handleApprove = async (id: string, categoryId: string) => {
-    if (!authToken) return;
-    setProcessingId(id);
-    try {
-      const res = await fetch('/api/storage', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-auth-password': authToken },
-        body: JSON.stringify({ operation: 'approveLink', id, categoryId }),
-      });
-      if (res.ok) {
-        setPendingSubmissions(prev => prev.filter(p => p.id !== id));
-        toast('已通过审核并添加到导航', 'success');
-      } else {
-        toast('操作失败', 'error');
-      }
-    } catch (e) {
-      toast('操作失败', 'error');
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  // 拒绝审核
-  const handleReject = async (id: string) => {
-    if (!authToken) return;
-    if (!confirm('确定拒绝这条申请吗？')) return;
-    setProcessingId(id);
-    try {
-      const res = await fetch('/api/storage', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-auth-password': authToken },
-        body: JSON.stringify({ operation: 'rejectLink', id }),
-      });
-      if (res.ok) {
-        setPendingSubmissions(prev => prev.filter(p => p.id !== id));
-        toast('已拒绝该申请', 'success');
-      } else {
-        toast('操作失败', 'error');
-      }
-    } catch (e) {
-      toast('操作失败', 'error');
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  // 切换到审�? tab 时加载数�?
-  useEffect(() => {
-    if (isOpen && activeTab === 'review' && authToken) {
-      loadPendingSubmissions();
-      loadReviewCategories();
-    }
-  }, [isOpen, activeTab, authToken]);
 
   useEffect(() => {
     if (isOpen) {
@@ -199,35 +104,35 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     onClose();
   };
 
-  // 处理退出登�?
+  // 处理退出登录
   const handleLogout = () => {
-    // 清除本地存储的认证信�?
+    // 清除本地存储的认证信息
     localStorage.removeItem('cloudnav_auth_token');
     localStorage.removeItem('lastLoginTime');
 
-    // 触发页面刷新或状态更�?
+    // 触发页面刷新或状态更新
     window.dispatchEvent(new CustomEvent('authStateChanged', { detail: { isAuthenticated: false } }));
 
     // 关闭设置模态框
     onClose();
 
-    // 显示退出成功提�?
-    toast.success('已成功退出登�?');
+    // 显示退出成功提示
+    toast.success('已成功退出登录');
   };
 
   const handleBulkGenerate = async () => {
     if (!localConfig.apiKey) {
-        toast.warning("请先配置并保�? API Key");
+        toast.warning("请先配置并保存 API Key");
         return;
     }
 
     const missingLinks = links.filter(l => !l.description);
     if (missingLinks.length === 0) {
-        toast.info("所有链接都已有描述�?");
+        toast.info("所有链接都已有描述！");
         return;
     }
 
-    if (!confirm(`发现 ${missingLinks.length} 个链接缺少描述，确定要使�? AI 自动生成吗？这可能需要一些时间。`)) return;
+    if (!confirm(`发现 ${missingLinks.length} 个链接缺少描述，确定要使用 AI 自动生成吗？这可能需要一些时间。`)) return;
 
     setIsProcessing(true);
     shouldStopRef.current = false;
@@ -284,7 +189,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     }
 
     try {
-        // 导入 generateLinkDescription 来测试连�?
+        // 导入 generateLinkDescription 来测试连接
         const { generateLinkDescription } = await import('../services/geminiService');
         const testTitle = "测试链接";
         const testUrl = "https://example.com";
@@ -293,30 +198,30 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         const description = await generateLinkDescription(testTitle, testUrl, localConfig);
 
         if (description) {
-            toast.success("AI 服务连接成功�?");
+            toast.success("AI 服务连接成功！");
         } else {
-            toast.error("AI 服务返回空结果，请检查配�?");
+            toast.error("AI 服务返回空结果，请检查配置");
         }
     } catch (error: any) {
-        console.error("AI 测试失败�?", error);
-        toast.error(`AI 服务测试失败�?${error.message || "未知错误"}`);
+        console.error("AI 测试失败：", error);
+        toast.error(`AI 服务测试失败：${error.message || "未知错误"}`);
     }
   };
 
   // --- Chrome Extension Code Generators ---
 
-  // 根据当前域名和密码生成插件代�?
+  // 根据当前域名和密码生成插件代码
   const getCurrentDomain = () => {
     // 尝试获取当前域名
     if (typeof window !== 'undefined') {
       return window.location.origin;
     }
-    // 回退到预设�?
-    return 'https://s.eallion.com'; // 替换为您的实际域�?
+    // 回退到预设值
+    return 'https://s.eallion.com'; // 替换为您的实际域名
   };
 
   const currentDomain = domain || getCurrentDomain();
-  const currentPassword = password || '请输入密�?';
+  const currentPassword = password || '请输入密码';
 
   const extManifest = `{
   "manifest_version": 3,
@@ -326,7 +231,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   "host_permissions": ["${currentDomain}/*"],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "保存�? CloudNav"
+    "default_title": "保存到 CloudNav"
   }
 }`;
 
@@ -348,14 +253,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   </style>
 </head>
 <body>
-  <h3>保存�? CloudNav</h3>
+  <h3>保存到 CloudNav</h3>
 
   <label>标题</label>
   <input type="text" id="title" placeholder="网站标题">
 
   <label>分类</label>
   <select id="category">
-    <option value="" disabled selected>加载分类�?...</option>
+    <option value="" disabled selected>加载分类中...</option>
   </select>
 
   <button id="saveBtn">保存书签</button>
@@ -435,7 +340,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!currentTabUrl) return;
 
     saveBtn.disabled = true;
-    saveBtn.textContent = '保存�?...';
+    saveBtn.textContent = '保存中...';
     statusDiv.textContent = '';
 
     try {
@@ -456,14 +361,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
 
       if (res.ok) {
-        statusDiv.textContent = '保存成功�?';
+        statusDiv.textContent = '保存成功！';
         statusDiv.className = 'success';
         setTimeout(() => window.close(), 1200);
       } else {
         throw new Error(res.statusText);
       }
     } catch (e) {
-      statusDiv.textContent = '保存失败�?' + e.message;
+      statusDiv.textContent = '保存失败：' + e.message;
       statusDiv.className = 'error';
       saveBtn.disabled = false;
       saveBtn.textContent = '保存书签';
@@ -514,12 +419,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-6 border border-slate-200 dark:border-slate-700">
           <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-6">
-            管理员登�?
+            管理员登录
           </h2>
           <form onSubmit={handleAuth} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                管理员密�?
+                管理员密码
               </label>
               <input
                 type="password"
@@ -539,7 +444,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 disabled={authLoading}
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {authLoading ? '登录�?...' : '登录'}
+                {authLoading ? '登录中...' : '登录'}
               </button>
               <button
                 type="button"
@@ -577,22 +482,14 @@ document.addEventListener('DOMContentLoaded', async () => {
               >
                 <Wrench size={18} /> 扩展工具
               </button>
-              {authToken && (
-                <button
-                  onClick={() => setActiveTab('review')}
-                  className={`text-sm font-semibold flex items-center gap-2 pb-1 transition-colors ${activeTab === 'review' ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500' : 'text-slate-500 dark:text-slate-400'}`}
-                >
-                  <Inbox size={18} /> 申请审核
-                </button>
-              )}
             </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={handleLogout}
               className="p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-full transition-colors group"
-              title="退出登�?"
-              aria-label="退出登�?"
+              title="退出登录"
+              aria-label="退出登录"
             >
               <LogOut className="w-5 h-5 text-slate-400 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors" />
             </button>
@@ -632,7 +529,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             </div>
                             <div>
                                 <label className="block text-xs font-medium text-slate-500 mb-1">
-                                    网站域名 (可�?)
+                                    网站域名 (可选)
                                 </label>
                                 <input
                                     type="text"
@@ -650,11 +547,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                     <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
                         <h4 className="font-bold dark:text-white mb-2 text-sm flex items-center gap-2">
-                            <Box size={16} /> Chrome 扩展 (弹窗选择�?)
+                            <Box size={16} /> Chrome 扩展 (弹窗选择版)
                         </h4>
                         <p className="text-xs text-slate-500 mb-4">
-                            在本地创建一个文件夹，创建以�? 3 个文件，然后使用"加载已解压的扩展程序"安装�?
-                            <br/>此扩展允许您点击图标�?<strong>手动选择分类</strong>保存�?
+                            在本地创建一个文件夹，创建以下 3 个文件，然后使用"加载已解压的扩展程序"安装。
+                            <br/>此扩展允许您点击图标后<strong>手动选择分类</strong>保存。
                         </p>
 
                         <div className="space-y-4 animate-in fade-in zoom-in duration-300">
@@ -740,7 +637,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <div className="w-16 h-16 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center mb-4">
                         <Wrench size={24} className="text-slate-400 dark:text-slate-500" />
                     </div>
-                    <h3 className="text-lg font-medium text-slate-900 dark:text-white mb-2">需要登录访�?</h3>
+                    <h3 className="text-lg font-medium text-slate-900 dark:text-white mb-2">需要登录访问</h3>
                     <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">扩展工具需要管理员权限</p>
                     <button
                         onClick={handleLoginPrompt}
@@ -752,102 +649,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                 )
             )}
 
-            {/* ===== 申请审核 Tab ===== */}
-            {activeTab === 'review' && authToken && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">网址收录申请</h3>
-                    <p className="text-xs text-slate-400 mt-0.5">访客通过「申请收录网址」提交的待审核链�?</p>
-                  </div>
-                  <button
-                    onClick={loadPendingSubmissions}
-                    className="text-xs text-blue-500 hover:text-blue-600 cursor-pointer flex items-center gap-1"
-                  >
-                    <Loader2 size={12} className={loadingPending ? 'animate-spin' : 'hidden'} />
-                    刷新
-                  </button>
-                </div>
-
-                {loadingPending && pendingSubmissions.length === 0 ? (
-                  <div className="text-center py-10 text-slate-400">
-                    <Loader2 size={24} className="animate-spin mx-auto mb-2" />
-                    加载�?...
-                  </div>
-                ) : pendingSubmissions.length === 0 ? (
-                  <div className="text-center py-10 text-slate-400">
-                    <Inbox size={40} className="mx-auto mb-3 opacity-30" />
-                    <p className="text-sm">暂无待审核申�?</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {pendingSubmissions.map(item => (
-                      <div key={item.id} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium text-sm text-slate-800 dark:text-slate-100 truncate">{item.title}</span>
-                              <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-blue-500 shrink-0">
-                                <ExternalLink size={12} />
-                              </a>
-                            </div>
-                            <a href={item.url} target="_blank" rel="noopener noreferrer" className="block text-xs text-blue-500 hover:underline truncate mt-0.5">
-                              {item.url}
-                            </a>
-                            {item.description && (
-                              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">{item.description}</p>
-                            )}
-                            <p className="text-xs text-slate-400 mt-1">
-                              {new Date(item.submittedAt).toLocaleString('zh-CN')}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 mt-3">
-                          <select
-                            id={`cat-${item.id}`}
-                            defaultValue={item.categoryId || 'common'}
-                            className="flex-1 text-xs px-2 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 outline-none focus:ring-1 focus:ring-blue-500"
-                          >
-                            {reviewCategories.map(cat => (
-                              <option key={cat.id} value={cat.id}>{cat.name}</option>
-                            ))}
-                          </select>
-                          <button
-                            onClick={() => {
-                              const sel = document.getElementById(`cat-${item.id}`) as HTMLSelectElement;
-                              handleApprove(item.id, sel?.value || 'common');
-                            }}
-                            disabled={processingId === item.id}
-                            className="flex items-center gap-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-lg transition-colors cursor-pointer disabled:opacity-50"
-                          >
-                            {processingId === item.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
-                            通过
-                          </button>
-                          <button
-                            onClick={() => handleReject(item.id)}
-                            disabled={processingId === item.id}
-                            className="flex items-center gap-1 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-medium rounded-lg transition-colors cursor-pointer disabled:opacity-50"
-                          >
-                            <XCircle size={12} />
-                            拒绝
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
             {activeTab === 'website' && (
                 <div className="space-y-6">
 
                     <div>
                         <h4 className="font-bold dark:text-white mb-3 text-sm flex items-center gap-2">
-                            <Settings size={16} /> 浏览器标签标题设�?
+                            <Settings size={16} /> 浏览器标签标题设置
                         </h4>
                         <p className="text-xs text-slate-500 mb-4">
-                            配置浏览器标签页显示的网站标题，让您的书签管理器更具个性化�?
+                            配置浏览器标签页显示的网站标题，让您的书签管理器更具个性化。
                         </p>
                         <div className="space-y-4">
                             <div>
@@ -862,7 +672,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     className="w-full p-2.5 rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                                 />
                                 <p className="text-[10px] text-slate-400 mt-1">
-                                    显示在浏览器标签页上的标�?
+                                    显示在浏览器标签页上的标题
                                 </p>
                             </div>
                             <div>
@@ -877,7 +687,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     className="w-full p-2.5 rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                                 />
                                 <p className="text-[10px] text-slate-400 mt-1">
-                                    显示在网页左上角的导航名�?
+                                    显示在网页左上角的导航名称
                                 </p>
                             </div>
                             <div>
@@ -892,7 +702,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     className="w-full p-2.5 rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                                 />
                                 <p className="text-[10px] text-slate-400 mt-1">
-                                    网站图标�? URL 地址
+                                    网站图标的 URL 地址
                                 </p>
                             </div>
                         </div>
@@ -903,12 +713,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                             <Clock size={16} /> 密码过期时间设置
                         </h4>
                         <p className="text-xs text-slate-500 mb-4">
-                            配置访问密码的过期时间，提高安全性。设置为"永久"则密码不会过期�?
+                            配置访问密码的过期时间，提高安全性。设置为"永久"则密码不会过期。
                         </p>
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-xs font-medium text-slate-500 mb-1">
-                                    过期时间数�?
+                                    过期时间数值
                                 </label>
                                 <input
                                     type="number"
@@ -918,7 +728,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     className="w-full p-2.5 rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                                 />
                                 <p className="text-[10px] text-slate-400 mt-1">
-                                    密码过期的具体数�?
+                                    密码过期的具体数值
                                 </p>
                             </div>
                             <div>
@@ -930,14 +740,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     onChange={(e) => handlePasswordExpiryChange('unit', e.target.value)}
                                     className="w-full p-2.5 rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                                 >
-                                    <option value="day">�?</option>
-                                    <option value="week">�?</option>
-                                    <option value="month">�?</option>
-                                    <option value="year">�?</option>
+                                    <option value="day">天</option>
+                                    <option value="week">周</option>
+                                    <option value="month">月</option>
+                                    <option value="year">年</option>
                                     <option value="permanent">永久</option>
                                 </select>
                                 <p className="text-[10px] text-slate-400 mt-1">
-                                    选择密码过期的时间单�?
+                                    选择密码过期的时间单位
                                 </p>
                             </div>
                         </div>
@@ -948,7 +758,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             <LayoutGrid size={16} /> 置顶网站设置
                         </h4>
                         <p className="text-xs text-slate-500 mb-4">
-                            配置置顶网站的显示或隐藏状态�?
+                            配置置顶网站的显示或隐藏状态。
                         </p>
                         <div className="space-y-4">
                             <button
@@ -965,7 +775,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 <span>{showPinnedWebsites ? '隐藏置顶网站' : '显示置顶网站'}</span>
                             </button>
                             <p className="text-xs text-slate-500 mt-2">
-                                {showPinnedWebsites ? '置顶的网站将在页面顶部显�?' : '置顶的网站将被隐藏，但仍可通过分类访问'}
+                                {showPinnedWebsites ? '置顶的网站将在页面顶部显示' : '置顶的网站将被隐藏，但仍可通过分类访问'}
                             </p>
                         </div>
                     </div>
@@ -975,7 +785,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             <MessageCircle size={16} /> Mastodon Ticker 设置
                         </h4>
                         <p className="text-xs text-slate-500 mb-4">
-                            配置右上角滚动显示的 Mastodon 动态，让访客看到您最新的分享内容�?
+                            配置右上角滚动显示的 Mastodon 动态，让访客看到您最新的分享内容。
                         </p>
                         <div className="space-y-4">
                             <div>
@@ -989,7 +799,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     <span className="text-sm font-medium dark:text-slate-300">启用 Mastodon Ticker</span>
                                 </label>
                                 <p className="text-xs text-slate-500 mt-1 ml-7">
-                                    是否在页面右上角显示滚动�? Mastodon 动�?
+                                    是否在页面右上角显示滚动的 Mastodon 动态
                                 </p>
                             </div>
 
@@ -1039,7 +849,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                             className="w-full p-2.5 rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                                         />
                                         <p className="text-[10px] text-slate-400 mt-1">
-                                            获取并显示的动态条数（1-40�?
+                                            获取并显示的动态条数（1-40）
                                         </p>
                                     </div>
 
@@ -1073,7 +883,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                                     onChange={(e) => handleMastodonConfigChange('pinned', e.target.checked)}
                                                     className="w-4 h-4 text-blue-600 bg-slate-100 border-slate-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-slate-800 focus:ring-2 dark:bg-slate-700 dark:border-slate-600"
                                                 />
-                                                <span className="text-sm dark:text-slate-300">包含置顶动�?</span>
+                                                <span className="text-sm dark:text-slate-300">包含置顶动态</span>
                                             </label>
                                         </div>
                                     </div>
@@ -1087,7 +897,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             <Cloud size={16} /> 天气设置
                         </h4>
                         <p className="text-xs text-slate-500 mb-4">
-                            配置右上角显示的天气信息，使用今日诗�? API 获取实时天气数据，包含温度、湿度、空气质量等信息�?
+                            配置右上角显示的天气信息，使用今日诗词 API 获取实时天气数据，包含温度、湿度、空气质量等信息。
                         </p>
                         <div className="space-y-4">
                             <div>
@@ -1113,7 +923,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                             <div>
                                                 <h5 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-1">今日诗词天气 API</h5>
                                                 <p className="text-xs text-blue-700 dark:text-blue-300 mb-2">
-                                                    免费开源的天气 API，提供实时天气数据，包含温度、湿度、天气状况、空气质量等信息�?
+                                                    免费开源的天气 API，提供实时天气数据，包含温度、湿度、天气状况、空气质量等信息。
                                                 </p>
                                                 <div className="flex items-center gap-2">
                                                     <a
@@ -1125,7 +935,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                                         <Globe size={12} />
                                                         官方网站
                                                     </a>
-                                                    <span className="text-xs text-blue-500 dark:text-blue-500">�?</span>
+                                                    <span className="text-xs text-blue-500 dark:text-blue-500">•</span>
                                                     <a
                                                         href="https://www.jinrishici.com/doc"
                                                         target="_blank"
@@ -1161,7 +971,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                             </label>
                                             <input
                                                 type="text"
-                                                value="�?10分钟"
+                                                value="每10分钟"
                                                 readOnly
                                                 className="w-full p-2.5 rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-400 outline-none transition-all text-sm"
                                             />
@@ -1173,16 +983,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                                     <div>
                                         <label className="block text-xs font-medium text-slate-500 mb-3">
-                                            显示特�?
+                                            显示特性
                                         </label>
                                         <div className="grid grid-cols-1 gap-2">
                                             <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
                                                 <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0"></div>
-                                                实时显示当前温度和天气状�?
+                                                实时显示当前温度和天气状况
                                             </div>
                                             <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
                                                 <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0"></div>
-                                                包含湿度和空气质量数�?
+                                                包含湿度和空气质量数据
                                             </div>
                                             <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
                                                 <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0"></div>
@@ -1195,7 +1005,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                         </div>
                     </div>
 
-                    {/* 视图模式选择已移除（仅保留简洁模式） */}
+                    {/* 网址申请审核 */}
+                    <div>
+                        <h4 className="font-bold dark:text-white mb-3 text-sm flex items-center gap-2">
+                            <Inbox size={16} /> 网址申请审核
+                        </h4>
+                        <p className="text-xs text-slate-500 mb-4">
+                            访客通过「申请收录」提交的��审核链接
+                        </p>
+                        <PendingSubmissions authToken={authToken} />
+                    </div>
 
                     {/* 只有登录用户才显示的功能管理区域 */}
                     {authToken && (
@@ -1204,7 +1023,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 <Wrench size={16} /> 网站内容管理
                             </h4>
                             <p className="text-xs text-slate-500 mb-4">
-                                管理网站的书签、导入、备份和添加新链接等操作�?
+                                管理网站的书签、导入、备份和添加新链接等操作。
                             </p>
                             <div className="grid grid-cols-3 gap-3">
                                 <button
@@ -1219,7 +1038,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 <button
                                     onClick={onBackupClick}
                                     className="flex flex-col items-center justify-center gap-2 p-3 text-sm text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 rounded-lg border border-slate-200 dark:border-slate-600 transition-all"
-                                    title="备份与恢�?"
+                                    title="备份与恢复"
                                 >
                                     <CloudCog size={18} />
                                     <span>备份恢复</span>
@@ -1255,3 +1074,72 @@ document.addEventListener('DOMContentLoaded', async () => {
 };
 
 export default SettingsModal;
+
+// ===== 待审核申请组件 =====
+function PendingSubmissions({ authToken }: { authToken: string | null }) {
+  const [pending, setPending] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [processingId, setProcessingId] = useState<string | null>(null);
+
+  const load = async () => {
+    if (!authToken) return;
+    setLoading(true);
+    try {
+      const [pendRes, catRes] = await Promise.all([
+        fetch('/api/storage', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-password': authToken }, body: JSON.stringify({ operation: 'listPending' }) }),
+        fetch('/api/storage?getConfig=categories'),
+      ]);
+      if (pendRes.ok) setPending(await pendRes.json());
+      if (catRes.ok) setCategories(await catRes.json());
+    } catch (e) { console.error('加载失败', e); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, [authToken]);
+
+  const approve = async (id: string, categoryId: string) => {
+    setProcessingId(id);
+    try {
+      const res = await fetch('/api/storage', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-password': authToken! }, body: JSON.stringify({ operation: 'approveLink', id, categoryId }) });
+      if (res.ok) { setPending(p => p.filter(x => x.id !== id)); }
+      else { alert('操作失败'); }
+    } catch { alert('操作失败'); }
+    finally { setProcessingId(null); }
+  };
+
+  const reject = async (id: string) => {
+    if (!confirm('确定拒绝？')) return;
+    setProcessingId(id);
+    try {
+      const res = await fetch('/api/storage', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-password': authToken! }, body: JSON.stringify({ operation: 'rejectLink', id }) });
+      if (res.ok) { setPending(p => p.filter(x => x.id !== id)); }
+    } catch { alert('操作失败'); }
+    finally { setProcessingId(null); }
+  };
+
+  if (loading && pending.length === 0) return <div className="text-center py-4 text-slate-400 text-sm">加载中...</div>;
+  if (pending.length === 0) return <p className="text-sm text-slate-400 py-2">暂无待审核申请</p>;
+
+  return (
+    <div className="space-y-2">
+      {pending.map(item => (
+        <div key={item.id} className="p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="font-medium text-sm text-slate-800 dark:text-slate-100 truncate">{item.title}</span>
+            <a href={item.url} target="_blank" rel="noreferrer" className="text-slate-400 hover:text-blue-500"><ExternalLink size={12} /></a>
+          </div>
+          <a href={item.url} target="_blank" rel="noreferrer" className="block text-xs text-blue-500 hover:underline truncate mb-2">{item.url}</a>
+          {item.description && <p className="text-xs text-slate-500 mb-2">{item.description}</p>}
+          <div className="flex items-center gap-2">
+            <select id={`cat-${item.id}`} defaultValue={item.categoryId || 'common'} className="flex-1 text-xs px-2 py-1 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 outline-none">
+              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            <button onClick={() => { const s = document.getElementById(`cat-${item.id}`) as HTMLSelectElement; approve(item.id, s?.value || 'common'); }} disabled={processingId === item.id} className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded cursor-pointer disabled:opacity-50 flex items-center gap-1"><CheckCircle2 size={12} />通过</button>
+            <button onClick={() => reject(item.id)} disabled={processingId === item.id} className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-xs rounded cursor-pointer disabled:opacity-50 flex items-center gap-1"><XCircle size={12} />拒绝</button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
