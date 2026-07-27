@@ -3153,38 +3153,56 @@ function App() {
               <section className="space-y-8">
                 {(() => {
                   const categoryTree = buildCategoryTree(categories);
-                  // 只显示有链接的分类
-                  return categoryTree
-                    .map(cat => {
-                      const catLinks = links.filter(l => l.categoryId === cat.id && !l.pinned);
-                      return { cat, catLinks };
-                    })
-                    .filter(({ catLinks }) => catLinks.length > 0)
-                    .map(({ cat, catLinks }) => (
+                  if (categoryTree.length === 0) {
+                    return (
+                      <div className="text-center py-10 text-slate-400">
+                        <p className="text-sm">暂无分类，请登录后在设置中添加分类</p>
+                      </div>
+                    );
+                  }
+                  // 显示所有顶级分类（即使没有链接也显示）
+                  return categoryTree.map(cat => {
+                    const catLinks = links.filter(l => l.categoryId === cat.id && !l.pinned);
+                    // 也包含子分类的链接
+                    const childIds = (cat.children || []).map((c: any) => c.id);
+                    const allLinks = [
+                      ...catLinks,
+                      ...links.filter(l => childIds.includes(l.categoryId) && !l.pinned)
+                    ];
+                    return (
                       <div key={cat.id}>
                         <div className="flex items-center justify-between mb-3">
                           <button
-                            onClick={() => { setSelectedCategory(cat.id); }}
+                            onClick={() => { setSelectedCategory(cat.id); setSidebarOpen(false); }}
                             className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
                           >
                             <Icon name={cat.icon || 'Folder'} size={16} />
                             <span>{cat.name}</span>
-                            <span className="px-2 py-0.5 text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-full">
-                              {catLinks.length}
-                            </span>
+                            {allLinks.length > 0 && (
+                              <span className="px-2 py-0.5 text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-full">
+                                {allLinks.length}
+                              </span>
+                            )}
                           </button>
-                          <button
-                            onClick={() => { setSelectedCategory(cat.id); }}
-                            className="text-xs text-slate-400 hover:text-blue-500 cursor-pointer"
-                          >
-                            查看全部 →
-                          </button>
+                          {allLinks.length > 0 && (
+                            <button
+                              onClick={() => { setSelectedCategory(cat.id); setSidebarOpen(false); }}
+                              className="text-xs text-slate-400 hover:text-blue-500 cursor-pointer"
+                            >
+                              查看全部 →
+                            </button>
+                          )}
                         </div>
-                        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-                          {catLinks.slice(0, 12).map(link => renderLinkCard(link))}
-                        </div>
+                        {allLinks.length > 0 ? (
+                          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                            {allLinks.slice(0, 12).map(link => renderLinkCard(link))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-slate-400 py-2">暂无链接</p>
+                        )}
                       </div>
-                    ));
+                    );
+                  });
                 })()}
               </section>
             )}
