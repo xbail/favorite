@@ -12,6 +12,7 @@ const STORAGE_KEYS = {
   SEARCH_CONFIG_KEY: 'search_config',
   CATEGORIES_CONFIG_KEY: 'cate_config',
   LINKS_CONFIG_KEY: 'links_config',
+  PENDING_SUBMISSIONS_KEY: 'pending_submissions',
 };
 
 const corsHeaders = {
@@ -167,7 +168,7 @@ export async function onRequest(context) {
 
     try {
       const body = await request.json();
-      const readOnlyOperations = ['favicon'];
+      const readOnlyOperations = ['favicon', 'submitLink'];
 
       // Anonymous allowed operations
       if (readOnlyOperations.includes(body.operation)) {
@@ -182,6 +183,32 @@ export async function onRequest(context) {
           // Blob 没有 expirationTtl，favicon 直接永久缓存（图标基本不变）
           await store.set(`favicon:${domain}`, icon);
           return new Response(JSON.stringify({ success: true }), {
+            headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          });
+        }
+        // 访客在线申请收录网址（进入待审核队列）
+        if (body.operation === 'submitLink') {
+          const { title, url, description, categoryId } = body;
+          if (!title || !url) {
+            return new Response(JSON.stringify({ error: '标题和 URL 为必填' }), {
+              status: 400,
+              headers: { 'Content-Type': 'application/json', ...corsHeaders },
+            });
+          }
+          const pendingStr = await store.get(STORAGE_KEYS.PENDING_SUBMISSIONS_KEY);
+          const pending = pendingStr ? JSON.parse(pendingStr) : [];
+          const submission = {
+            id: `sub_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            title,
+            url,
+            description: description || '',
+            categoryId: categoryId || 'common',
+            submittedAt: Date.now(),
+            status: 'pending',
+          };
+          pending.push(submission);
+          await store.set(STORAGE_KEYS.PENDING_SUBMISSIONS_KEY, JSON.stringify(pending));
+          return new Response(JSON.stringify({ success: true, id: submission.id }), {
             headers: { 'Content-Type': 'application/json', ...corsHeaders },
           });
         }
@@ -205,6 +232,54 @@ export async function onRequest(context) {
       // Auth Only Check
       if (body.authOnly) {
         await store.set('last_auth_time', Date.now().toString());
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        });
+      }
+
+      // ===== 网址申请审核（管理员）=====
+      // 列出待审核申请
+      if (body.operation === 'listPending') {
+        const pendingStr = await store.get(STORAGE_KEYS.PENDING_SUBMISSIONS_KEY);
+        return new Response(pendingStr || '[]', {
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        });
+      }
+      // 通过审核：把申请的链接写入 links_config，并从待审队列移除
+      if (body.operation === 'approveLink') {
+        const { id, categoryId } = body;
+        const pendingStr = await store.get(STORAGE_KEYS.PENDING_SUBMISSIONS_KEY);
+        const pending = pendingStr ? JSON.parse(pendingStr) : [];
+        const item = pending.find(p => p.id === id);
+        if (!item) {
+          return new Response(JSON.stringify({ error: '申请不存在' }), {
+            status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          });
+        }
+        const linksStr = await store.get(STORAGE_KEYS.LINKS_CONFIG_KEY);
+        const links = linksStr ? JSON.parse(linksStr) : [];
+        const newLink = {
+          id: Date.now().toString(),
+          title: item.title,
+          url: item.url,
+          description: item.description || '',
+          categoryId: categoryId || item.categoryId || 'common',
+          createdAt: Date.now(),
+          pinned: false,
+          icon: undefined,
+        };
+        await store.set(STORAGE_KEYS.LINKS_CONFIG_KEY, JSON.stringify([newLink, ...links]));
+        await store.set(STORAGE_KEYS.PENDING_SUBMISSIONS_KEY, JSON.stringify(pending.filter(p => p.id !== id)));
+        return new Response(JSON.stringify({ success: true, link: newLink }), {
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        });
+      }
+      // 拒绝审核：直接从待审队列移除
+      if (body.operation === 'rejectLink') {
+        const { id } = body;
+        const pendingStr = await store.get(STORAGE_KEYS.PENDING_SUBMISSIONS_KEY);
+        const pending = pendingStr ? JSON.parse(pendingStr) : [];
+        await store.set(STORAGE_KEYS.PENDING_SUBMISSIONS_KEY, JSON.stringify(pending.filter(p => p.id !== id)));
         return new Response(JSON.stringify({ success: true }), {
           headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });

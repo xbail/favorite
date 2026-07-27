@@ -47,6 +47,7 @@ const SettingsModal = lazy(() => import('./components/SettingsModal'));
 const SearchConfigModal = lazy(() => import('./components/SearchConfigModal'));
 const ContextMenu = lazy(() => import('./components/ContextMenu'));
 const QRCodeModal = lazy(() => import('./components/QRCodeModal'));
+const SubmitLinkModal = lazy(() => import('./components/SubmitLinkModal'));
 
 // --- 配置项 ---
 // 项目核心仓库地址
@@ -118,8 +119,16 @@ function App() {
   }, [darkMode]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // 访客在线申请收录网址
+  const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
+
+  // 批量移动下拉菜单：改用点击切换（原 group-hover 在移动端/触屏下难以触发）
+  const [batchMoveOpen, setBatchMoveOpen] = useState(false);
+
   // Search Mode State
-  const [searchMode, setSearchMode] = useState<SearchMode>('internal');
+  // 搜索模式固定为站内搜索，不再支持站外搜索
+  const [searchMode] = useState<SearchMode>('internal');
+  const setSearchMode = (_mode: SearchMode) => { /* no-op: 固定站内搜索 */ };
   const [externalSearchSources, setExternalSearchSources] = useState<ExternalSearchSource[]>([]);
   const [isLoadingSearchConfig, setIsLoadingSearchConfig] = useState(true);
 
@@ -208,20 +217,9 @@ function App() {
   const [isBatchEditMode, setIsBatchEditMode] = useState(false); // 是否处于批量编辑模式
   const [selectedLinks, setSelectedLinks] = useState<Set<string>>(new Set()); // 选中的链接 ID 集合
 
-  // View Mode State
-  const [viewMode, setViewMode] = useState<'compact' | 'detailed'>(() => {
-    // 优先级：1. 用户个人偏好（仅视图模式） > 2. 管理员设置的默认值 > 3. 系统默认简约版
-    const savedViewMode = localStorage.getItem('cloudnav_view_mode_preference');
-    const viewConfig = getViewMode();
-    const defaultViewMode = viewConfig?.defaultMode || 'compact';
-
-    // 如果用户有个人偏好设置，优先使用（仅限视图模式）
-    if (savedViewMode === 'detailed' || savedViewMode === 'compact') {
-      return savedViewMode;
-    }
-    // 否则使用管理员设置的默认值
-    return defaultViewMode;
-  });
+  // View Mode State - 仅保留简洁模式（compact），移除详情模式
+  const [viewMode] = useState<'compact' | 'detailed'>('compact');
+  const setViewMode = (_mode: 'compact' | 'detailed') => { /* no-op: 仅保留简洁模式 */ };
 
   // Pinned Websites Visibility State - 从服务器配置加载
   const [showPinnedWebsites, setShowPinnedWebsites] = useState(() => {
@@ -1841,35 +1839,38 @@ function App() {
   };
 
   // --- Mouse tracking for hover cards effect ---
+  // 性能优化：用 requestAnimationFrame 节流，且只更新当前悬停的那张卡片
+  // （原实现每次 pointermove 都 querySelectorAll 所有卡片并逐个写 CSS 变量，卡片多时严重卡顿）
   useEffect(() => {
+    let rafId: number | null = null;
+    let lastEvent: PointerEvent | null = null;
+
+    const update = () => {
+      rafId = null;
+      const event = lastEvent;
+      if (!event) return;
+      // 只处理当前鼠标下最近的 .link-card
+      const target = (event.target as HTMLElement)?.closest?.('.link-card') as HTMLElement | null;
+      if (!target) return;
+      const rect = target.getBoundingClientRect();
+      const x = (event.clientX - (rect.left + rect.width / 2)) / (rect.width / 2);
+      const y = (event.clientY - (rect.top + rect.height / 2)) / (rect.height / 2);
+      target.style.setProperty('--pointer-x', x.toFixed(3));
+      target.style.setProperty('--pointer-y', y.toFixed(3));
+    };
+
     const handlePointerMove = (event: PointerEvent) => {
-      const linkCards = document.querySelectorAll('.link-card');
-
-      linkCards.forEach((card) => {
-        const rect = card.getBoundingClientRect();
-
-        // Calculate center point of the card
-        const centerX = rect.left + rect.width / 2;
-        const centerY = rect.top + rect.height / 2;
-
-        // Calculate pointer position relative to center
-        const relativeX = event.clientX - centerX;
-        const relativeY = event.clientY - centerY;
-
-        // Normalize to -1 to 1 range
-        const x = relativeX / (rect.width / 2);
-        const y = relativeY / (rect.height / 2);
-
-        // Update CSS custom properties
-        (card as HTMLElement).style.setProperty('--pointer-x', x.toFixed(3));
-        (card as HTMLElement).style.setProperty('--pointer-y', y.toFixed(3));
-      });
+      lastEvent = event;
+      if (rafId === null) {
+        rafId = requestAnimationFrame(update);
+      }
     };
 
     document.addEventListener('pointermove', handlePointerMove);
 
     return () => {
       document.removeEventListener('pointermove', handlePointerMove);
+      if (rafId !== null) cancelAnimationFrame(rafId);
     };
   }, []);
 
@@ -2780,148 +2781,30 @@ function App() {
                 <Search size={20} />
               </button>
 
-              {/* 搜索模式切换 - 平板端和桌面端显示，手机端隐藏 */}
-              <div className="hidden sm:hidden md:flex lg:flex items-center gap-2 flex-shrink-0">
-                <div className="flex items-center bg-slate-100 dark:bg-slate-700 rounded-full h-[36px]">
-                  <button
-                    onClick={() => handleSearchModeChange('internal')}
-                    className={`px-3 py-2 text-xs font-medium rounded-full transition-all flex items-center justify-center h-[36px] min-w-[40px] leading-none cursor-pointer ${
-                      searchMode === 'internal'
-                        ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-400 shadow-sm'
-                        : 'text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100'
-                    }`}
-                    title="站内搜索"
-                  >
-                    站内
-                  </button>
-                  <button
-                    onClick={() => handleSearchModeChange('external')}
-                    className={`px-3 py-2 text-xs font-medium rounded-full transition-all flex items-center justify-center h-[36px] min-w-[40px] leading-none cursor-pointer ${
-                      searchMode === 'external'
-                        ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-400 shadow-sm'
-                        : 'text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100'
-                    }`}
-                    title="站外搜索"
-                  >
-                    站外
-                  </button>
-                </div>
-
-                {/* 搜索配置管理按钮 */}
-                {searchMode === 'external' && authToken && (
-                  <button
-                    onClick={() => setIsSearchConfigModalOpen(true)}
-                    className="p-2 text-slate-400 hover:text-blue-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors h-[36px] min-w-[36px] flex items-center justify-center cursor-pointer"
-                    title="管理搜索源"
-                  >
-                    <Settings size={14} />
-                  </button>
-                )}
-              </div>
+              {/* 搜索模式固定为站内搜索，移除站内/站外切换 UI */}
 
               {/* 搜索框 */}
               <div className={`relative w-full max-w-lg ${isMobileSearchOpen ? 'block' : 'hidden'} sm:block`}>
-                {/* 搜索源选择弹出窗口 */}
-                {searchMode === 'external' && showSearchSourcePopup && (
-                  <div
-                    className="absolute left-0 top-full mt-2 w-full bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 p-3 z-50"
-                    onMouseEnter={() => setIsPopupHovered(true)}
-                    onMouseLeave={() => setIsPopupHovered(false)}
-                  >
-                    <div className="grid grid-cols-5 sm:grid-cols-5 gap-2">
-                      {externalSearchSources
-                        .filter(source => source.enabled)
-                        .map((source, index) => (
-                          <button
-                            key={index}
-                            onClick={() => handleSearchSourceSelect(source)}
-                            onMouseEnter={() => setHoveredSearchSource(source)}
-                            onMouseLeave={() => setHoveredSearchSource(null)}
-                            className="px-2 py-2 text-sm rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 flex items-center gap-1 justify-center"
-                          >
-                            <img
-                              src={`https://www.faviconextractor.com/favicon/${new URL(source.url).hostname}?larger=true`}
-                              alt={source.name}
-                              className="w-4 h-4"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGNsYXNzPSJsdWNpZGUgbHVjaWRlLXNlYXJjaCI+PHBhdGggZD0ibTIxIDIxLTQuMzQtNC4zNCI+PC9wYXRoPjxjaXJjbGUgY3g9IjExIiBjeT0iMTEiIHI9IjgiPjwvY2lyY2xlPjwvc3ZnPg==';
-                              }}
-                            />
-                            <span className="truncate hidden sm:inline">{source.name}</span>
-                          </button>
-                        ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* 搜索图标 */}
-                <div
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 cursor-pointer"
-                  onMouseEnter={() => searchMode === 'external' && setIsIconHovered(true)}
-                  onMouseLeave={() => setIsIconHovered(false)}
-                  onClick={() => {
-                    // 移动端点击事件：显示搜索源选择窗口
-                    if (searchMode === 'external') {
-                      setShowSearchSourcePopup(!showSearchSourcePopup);
-                    }
-                  }}
-                >
-                  {searchMode === 'internal' ? (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-search">
-                      <path d="m21 21-4.35-4.35"></path>
-                      <circle cx="11" cy="11" r="8"></circle>
-                    </svg>
-                  ) : (hoveredSearchSource || selectedSearchSource) ? (
-                    <img
-                      src={`https://www.faviconextractor.com/favicon/${new URL((hoveredSearchSource || selectedSearchSource).url).hostname}?larger=true`}
-                      alt={(hoveredSearchSource || selectedSearchSource).name}
-                      className="w-4 h-4"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGNsYXNzPSJsdWNpZGUgbHVjaWRlLXNlYXJjaCI+PHBhdGggZD0ibTIxIDIxLTQuMzQtNC4zNCI+PC9wYXRoPjxjaXJjbGUgY3g9IjExIiBjeT0iMTEiIHI9IjgiPjwvY2lyY2xlPjwvc3ZnPg==';
-                      }}
-                    />
-                  ) : (
-                    <Search size={16} />
-                  )}
+                {/* 搜索图标（仅站内搜索） */}
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-search">
+                    <path d="m21 21-4.35-4.35"></path>
+                    <circle cx="11" cy="11" r="8"></circle>
+                  </svg>
                 </div>
 
                 <input
                   type="text"
-                  placeholder={
-                    searchMode === 'internal'
-                      ? "搜索站内内容..."
-                      : selectedSearchSource
-                        ? `在${selectedSearchSource.name}搜索内容`
-                        : "搜索站外内容..."
-                  }
+                  placeholder="搜索站内内容..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   aria-label="搜索框"
                   role="searchbox"
-                  aria-expanded={showSearchSourcePopup ? "true" : "false"}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && searchMode === 'external') {
-                      handleExternalSearch();
-                    }
-                  }}
                   className="w-full pl-9 pr-4 py-2 h-[36px] rounded-full bg-slate-100 dark:bg-slate-700/50 border-none text-sm focus:ring-2 focus:ring-blue-500 dark:text-white placeholder-slate-400 outline-none transition-all leading-none"
-                  // 移动端优化：防止页面缩放
                   style={{ fontSize: '16px' }}
                   inputMode="search"
                   enterKeyHint="search"
                 />
-
-                {searchMode === 'external' && searchQuery.trim() && (
-                  <button
-                    onClick={handleExternalSearch}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-blue-500 cursor-pointer"
-                    title="执行站外搜索"
-                  >
-                    <ExternalLink size={14} />
-                  </button>
-                )}
               </div>
             </div>
           </div>
@@ -2935,32 +2818,6 @@ function App() {
             {/* 天气显示 - 仅在大屏幕显示 */}
             <div className={`${isMobileSearchOpen ? 'hidden' : 'flex'} xl:flex`}>
               <WeatherDisplay config={weatherConfig} />
-            </div>
-
-            {/* 视图切换控制器 - 移动端：搜索框展开时隐藏，桌面端始终显示 */}
-            <div className={`${isMobileSearchOpen ? 'hidden' : 'flex'} lg:flex items-center bg-slate-100 dark:bg-slate-700 rounded-full h-[36px]`}>
-              <button
-                onClick={() => handleViewModeChange('compact')}
-                className={`px-3 py-2 text-xs font-medium rounded-full transition-all flex items-center justify-center h-[36px] min-w-[40px] leading-none cursor-pointer ${
-                  viewMode === 'compact'
-                    ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-400 shadow-sm'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100'
-                }`}
-                title="简约版视图"
-              >
-                简约
-              </button>
-              <button
-                onClick={() => handleViewModeChange('detailed')}
-                className={`px-3 py-2 text-xs font-medium rounded-full transition-all flex items-center justify-center h-[36px] min-w-[40px] leading-none cursor-pointer ${
-                  viewMode === 'detailed'
-                    ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-400 shadow-sm'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100'
-                }`}
-                title="详情版视图"
-              >
-                详情
-              </button>
             </div>
 
             {/* 主题切换按钮 - 移动端：搜索框展开时隐藏，桌面端始终显示 */}
@@ -3167,25 +3024,31 @@ function App() {
                                              <CheckSquare size={14} />
                                              <span>{selectedLinks.size === displayedLinks.length ? '取消全选' : '全选'}</span>
                                          </button>
-                                         <div className="relative group">
+                                         <div className="relative">
                                               <button
+                                                  onClick={() => setBatchMoveOpen(v => !v)}
                                                   className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-full transition-colors cursor-pointer"
                                                   title="批量移动"
                                               >
                                                   <Upload size={14} />
                                                   <span>批量移动</span>
                                               </button>
-                                              <div className="absolute top-full right-0 mt-1 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 z-20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
-                                                  {categories.filter(cat => cat.id !== selectedCategory).map(cat => (
-                                                      <button
-                                                          key={cat.id}
-                                                          onClick={() => handleBatchMove(cat.id)}
-                                                          className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 first:rounded-t-lg last:rounded-b-lg cursor-pointer"
-                                                      >
-                                                          {cat.name}
-                                                      </button>
-                                                  ))}
-                                              </div>
+                                              {batchMoveOpen && (
+                                                <>
+                                                  <div className="fixed inset-0 z-10" onClick={() => setBatchMoveOpen(false)} />
+                                                  <div className="absolute top-full right-0 mt-1 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 z-20 transition-all duration-200">
+                                                      {categories.filter(cat => cat.id !== selectedCategory).map(cat => (
+                                                          <button
+                                                              key={cat.id}
+                                                              onClick={() => { handleBatchMove(cat.id); setBatchMoveOpen(false); }}
+                                                              className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 first:rounded-t-lg last:rounded-b-lg cursor-pointer"
+                                                          >
+                                                              {cat.name}
+                                                          </button>
+                                                      ))}
+                                                  </div>
+                                                </>
+                                              )}
                                           </div>
                                      </>
                                  ) : (
@@ -3216,7 +3079,7 @@ function App() {
                                 <Search size={40} className="opacity-30 mb-4" />
                                 <p>没有找到相关内容</p>
                                 {selectedCategory !== 'all' && (
-                                    <button onClick={() => setIsModalOpen(true)} className="mt-4 text-blue-500 hover:underline cursor-pointer">添加一个？</button>
+                                    <button onClick={() => authToken ? setIsModalOpen(true) : setIsSubmitModalOpen(true)} className="mt-4 text-blue-500 hover:underline cursor-pointer">{authToken ? '添加一个？' : '申请收录网址'}</button>
                                 )}
                             </>
                         )}
@@ -3336,6 +3199,14 @@ function App() {
             url={qrCodeModal.url || ''}
             title={qrCodeModal.title || ''}
             onClose={() => setQrCodeModal({ isOpen: false, url: '', title: '' })}
+          />
+
+          {/* 访客在线申请收录网址 */}
+          <SubmitLinkModal
+            isOpen={isSubmitModalOpen}
+            onClose={() => setIsSubmitModalOpen(false)}
+            categories={categories}
+            defaultCategoryId={selectedCategory !== 'all' ? selectedCategory : undefined}
           />
 
           {/* Toast 通知容器 */}
