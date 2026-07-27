@@ -163,9 +163,9 @@ class ConfigManager {
   }
 
   /**
-   * 更新视图模式
+   * 更新视图模式（仅简洁模式，详情模式已移除）
    */
-  updateViewMode(mode: 'compact' | 'detailed', isDefault: boolean = false): void {
+  updateViewMode(mode: 'compact', isDefault: boolean = false): void {
     if (!this.config.view) {
       this.config.view = {};
     }
@@ -181,7 +181,7 @@ class ConfigManager {
   /**
    * 获取视图模式
    */
-  getViewMode(): { mode: 'compact' | 'detailed'; defaultMode?: 'compact' | 'detailed' } {
+  getViewMode(): { mode: 'compact'; defaultMode?: 'compact' } {
     return this.config.view || { mode: 'compact', defaultMode: 'compact' };
   }
 
@@ -300,7 +300,7 @@ export const updateMastodonConfig = (config: MastodonConfig) => configManager.up
 export const getMastodonConfig = () => configManager.getMastodonConfig();
 export const updateWeatherConfig = (config: WeatherConfig) => configManager.updateWeatherConfig(config);
 export const getWeatherConfig = () => configManager.getWeatherConfig();
-export const updateViewMode = (mode: 'compact' | 'detailed', isDefault?: boolean) => configManager.updateViewMode(mode, isDefault);
+export const updateViewMode = (mode: 'compact', isDefault?: boolean) => configManager.updateViewMode(mode, isDefault);
 export const getViewMode = () => configManager.getViewMode();
 export const updateUIConfig = (config: Partial<AppConfig['ui']>) => configManager.updateUIConfig(config);
 export const getUIConfig = () => configManager.getUIConfig();

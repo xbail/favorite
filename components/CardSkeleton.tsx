@@ -1,12 +1,10 @@
 import React from 'react';
 
 interface CardSkeletonProps {
-  viewMode?: 'compact' | 'detailed';
   count?: number;
 }
 
 const CardSkeleton: React.FC<CardSkeletonProps> = ({
-  viewMode = 'compact',
   count = 1
 }) => {
   const skeletons = Array.from({ length: count }, (_, i) => i);
@@ -16,9 +14,7 @@ const CardSkeleton: React.FC<CardSkeletonProps> = ({
       {skeletons.map((index) => (
         <div
           key={index}
-          className={`group relative bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 dark:border-gray-700 overflow-hidden animate-pulse ${
-            viewMode === 'detailed' ? 'p-4' : 'p-3'
-          }`}
+          className="group relative bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 dark:border-gray-700 overflow-hidden animate-pulse p-3"
         >
           {/* 图标骨架 */}
           <div className="flex items-start space-x-3">
@@ -28,11 +24,6 @@ const CardSkeleton: React.FC<CardSkeletonProps> = ({
             <div className="flex-1 min-w-0">
               {/* 标题骨架 */}
               <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-3/4 mb-2" />
-
-              {/* 描述骨架（仅在详细模式下显示） */}
-              {viewMode === 'detailed' && (
-                <div className="h-3 bg-gray-200 dark:bg-gray-600 rounded w-1/2" />
-              )}
             </div>
 
             {/* 操作按钮骨架 */}

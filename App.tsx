@@ -6,7 +6,7 @@ import { ToastContainer, useToast } from './components/Toast';
 import {
   Search, Plus, Upload, Moon, Sun, Menu,
   Trash2, Edit2, Loader2, Cloud, CheckCircle2, AlertCircle,
-  Pin, Settings, Lock, CloudCog, Github, GitFork, GripVertical, Save, CheckSquare, LogOut, ExternalLink, Send
+  Pin, Settings, Lock, CloudCog, Github, GitFork, GripVertical, Save, CheckSquare, LogOut, ExternalLink, Send, Home
 } from 'lucide-react';
 import {
   DndContext,
@@ -30,7 +30,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { LinkItem, Category, DEFAULT_CATEGORIES, INITIAL_LINKS, WebDavConfig, AIConfig, SearchMode, ExternalSearchSource, SearchConfig, PasswordExpiryConfig, IconConfig, AppConfig, WeatherConfig, MastodonConfig } from './types';
 import { parseBookmarks } from './services/bookmarkParser';
 import { DEFAULT_ICON_CONFIG } from './src/constants';
-import { configManager, loadAppConfig, saveAppConfig, getAppConfig, getWebDavConfig, getSearchConfig, getIconConfig, getViewMode, getUIConfig, getAIConfig, getWebsiteConfig, getMastodonConfig, getWeatherConfig, updateWebDavConfig, updateSearchConfig, updateIconConfig, updateMastodonConfig, updateWeatherConfig, updateViewMode, updateUIConfig, updateAIConfig, updateWebsiteConfig, syncConfigToKV, syncConfigFromKV } from './src/utils/configManager';
+import { configManager, loadAppConfig, saveAppConfig, getAppConfig, getWebDavConfig, getSearchConfig, getIconConfig, getUIConfig, getAIConfig, getWebsiteConfig, getMastodonConfig, getWeatherConfig, updateWebDavConfig, updateSearchConfig, updateIconConfig, updateMastodonConfig, updateWeatherConfig, updateUIConfig, updateAIConfig, updateWebsiteConfig, syncConfigToKV, syncConfigFromKV } from './src/utils/configManager';
 import { extractColorFromImage, generateColorFromText, ExtractedColor } from './src/utils/colorExtractor';
 import Icon from './components/Icon';
 import CardSkeleton from './components/CardSkeleton';
@@ -217,9 +217,8 @@ function App() {
   const [isBatchEditMode, setIsBatchEditMode] = useState(false); // 是否处于批量编辑模式
   const [selectedLinks, setSelectedLinks] = useState<Set<string>>(new Set()); // 选中的链接 ID 集合
 
-  // View Mode State - 仅保留简洁模式（compact），移除详情模式
-  const [viewMode] = useState<'compact' | 'detailed'>('compact');
-  const setViewMode = (_mode: 'compact' | 'detailed') => { /* no-op: 仅保留简洁模式 */ };
+  // View Mode: 仅简洁模式（compact），详情模式已从源码移除
+  const viewMode = 'compact' as const;
 
   // Pinned Websites Visibility State - 从服务器配置加载
   const [showPinnedWebsites, setShowPinnedWebsites] = useState(() => {
@@ -809,18 +808,6 @@ function App() {
                     };
                     localStorage.setItem('cloudnav_website_settings', JSON.stringify(websiteSettings));
 
-                    // 如果服务器有默认视图模式设置，保存到localStorage并清除用户个人偏好
-                    if (aiConfigData.defaultViewMode && (aiConfigData.defaultViewMode === 'compact' || aiConfigData.defaultViewMode === 'detailed')) {
-                        localStorage.setItem('cloudnav_default_view_mode', aiConfigData.defaultViewMode);
-                        // 清除用户的个人视图偏好，让用户使用管理员设置的默认视图
-                        localStorage.removeItem('cloudnav_view_mode');
-                        // 如果当前状态不匹配，更新状态
-                        if (viewMode !== aiConfigData.defaultViewMode) {
-                            setViewMode(aiConfigData.defaultViewMode);
-                        }
-                        console.log('从服务器加载默认视图模式:', aiConfigData.defaultViewMode);
-                    }
-
                     // AI配置的敏感部分只在没有本地配置时才保存
                     const currentLocalConfig = localStorage.getItem(AI_CONFIG_KEY);
                     if (!currentLocalConfig) {
@@ -1041,15 +1028,7 @@ function App() {
   // 在服务器配置加载完成后，检查是否需要更新默认视图模式
   useEffect(() => {
     if (!isServerConfigLoaded) return; // 等待服务器配置加载完成
-
-    const savedViewMode = localStorage.getItem('cloudnav_view_mode');
-    const defaultViewMode = localStorage.getItem('cloudnav_default_view_mode');
-
-    // 如果用户没有个人偏好，但服务器有默认设置，则应用服务器的默认设置
-    if (!savedViewMode && defaultViewMode && (defaultViewMode === 'detailed' || defaultViewMode === 'compact')) {
-      setViewMode(defaultViewMode);
-      console.log('应用服务器默认视图模式：', defaultViewMode);
-    }
+    // 视图模式固定为简洁模式，不再从 localStorage/server 读取
   }, [isServerConfigLoaded]); // 依赖服务器配置加载状态
 
   // 监听置顶网站设置变化
@@ -1104,12 +1083,7 @@ function App() {
     }
   };
 
-  // 视图模式切换处理函数 - 只保存用户个人偏好
-  const handleViewModeChange = (mode: 'compact' | 'detailed') => {
-    setViewMode(mode);
-    // 只保存用户的个人偏好，不影响全局设置
-    localStorage.setItem('cloudnav_view_mode_preference', mode);
-  };
+  // 视图模式切换已移除（仅保留简洁模式）
 
   // --- Batch Edit Functions ---
   const toggleBatchEditMode = () => {
@@ -2260,7 +2234,7 @@ function App() {
     } = useSortable({ id: link.id });
 
     // 根据视图模式决定卡片样式
-    const isDetailedView = viewMode === 'detailed';
+    const isDetailedView = false; // 详情模式已移除，固定简洁模式
 
     // 获取或生成颜色
     const linkColor = linkColors.get(link.id) || (() => {
@@ -2357,7 +2331,7 @@ function App() {
     const isSelected = selectedLinks.has(link.id);
 
     // 根据视图模式决定卡片样式
-    const isDetailedView = viewMode === 'detailed';
+    const isDetailedView = false; // 详情模式已移除，固定简洁模式
 
     // 获取或生成颜色
     const linkColor = linkColors.get(link.id) || (() => {
@@ -2695,6 +2669,19 @@ function App() {
 
         {/* Categories List */}
         <div className="flex-1 overflow-y-auto p-4 space-y-1 scrollbar-hide">
+            {/* 首页按钮：始终显示，点击回到全部（all）视图 */}
+            <button
+              onClick={() => { setSelectedCategory('all'); setSidebarOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all cursor-pointer ${
+                selectedCategory === 'all'
+                  ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'
+              }`}
+            >
+              <div className="p-1"><Home size={18} /></div>
+              <span>首页</span>
+            </button>
+
             {showPinnedWebsites && (
                 <button
                   onClick={() => { setSelectedCategory('all'); setSidebarOpen(false); }}
@@ -2909,11 +2896,11 @@ function App() {
                     </div>
                     {isInitialLoading && selectedCategory === 'all' && pinnedLinks.length === 0 && !searchQuery ? (
                         <div className={`grid gap-3 ${
-                              viewMode === 'detailed'
+                              false
                                 ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6'
                                 : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6'
                             }`}>
-                            <CardSkeleton viewMode={viewMode} count={10} />
+                            <CardSkeleton count={10} />
                         </div>
                     ) : isSortingPinned ? (
                         <DndContext
@@ -2926,7 +2913,7 @@ function App() {
                                 strategy={rectSortingStrategy}
                             >
                                 <div className={`grid gap-3 ${
-                                  viewMode === 'detailed'
+                                  false
                                     ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6'
                                     : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6'
                                 }`}>
@@ -2938,7 +2925,7 @@ function App() {
                         </DndContext>
                     ) : (
                                 <div className={`grid gap-3 ${
-                                  viewMode === 'detailed'
+                                  false
                                     ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6'
                                     : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6'
                                 }`}>
@@ -3108,7 +3095,7 @@ function App() {
                     searchQuery ? (
                         // 搜索模式下只显示结果
                         <div key={searchQuery} className={`grid gap-3 ${
-                            viewMode === 'detailed'
+                            false
                                 ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6'
                                 : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6'
                         }`}>
@@ -3119,11 +3106,11 @@ function App() {
                         <>
                             {isInitialLoading && selectedCategory === 'all' ? (
                                 <div className={`grid gap-3 ${
-                                    viewMode === 'detailed'
+                                    false
                                         ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6'
                                         : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6'
                                 }`}>
-                                    <CardSkeleton viewMode={viewMode} count={20} />
+                                    <CardSkeleton count={20} />
                                 </div>
                             ) : isSortingMode === selectedCategory ? (
                                 <DndContext
@@ -3136,7 +3123,7 @@ function App() {
                                         strategy={rectSortingStrategy}
                                     >
                                         <div className={`grid gap-3 ${
-                                            viewMode === 'detailed'
+                                            false
                                                 ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6'
                                                 : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6'
                                         }`}>
@@ -3148,7 +3135,7 @@ function App() {
                                 </DndContext>
                             ) : (
                                 <div className={`grid gap-3 ${
-                                    viewMode === 'detailed'
+                                    false
                                         ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6'
                                         : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6'
                                 }`}>

@@ -145,10 +145,10 @@ export interface AppConfig {
   // 图标配置
   icon?: IconConfig;
 
-  // 视图配置
+  // 视图配置（仅简洁模式，详情模式已移除）
   view?: {
-    mode: 'compact' | 'detailed'; // 用户个人视图偏好
-    defaultMode?: 'compact' | 'detailed'; // 管理员设置的默认视图模式
+    mode: 'compact'; // 用户个人视图偏好
+    defaultMode?: 'compact'; // 管理员设置的默认视图模式
   };
 
   // 界面配置
