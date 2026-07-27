@@ -2935,7 +2935,8 @@ function App() {
                 </section>
             )}
 
-            {/* 2. Main Grid - 始终显示（首页/分类/搜索均展示链接网格） */}
+            {/* 2. Main Grid - 仅在选中分类或搜索时显示单分类链接网格 */}
+            {(selectedCategory !== 'all' || searchQuery) && (
             <section>
                  {(!pinnedLinks.length && !searchQuery && selectedCategory === 'all') && (
                     <div className="mb-6 p-5 rounded-2xl bg-white/70 dark:bg-slate-800/60 backdrop-blur-md border border-white/40 dark:border-slate-700/50 shadow-sm flex items-center justify-between">
@@ -3140,11 +3141,53 @@ function App() {
                                 }`}>
                                     {displayedLinks.map(link => renderLinkCard(link))}
                                 </div>
-            )}
+                            )}
                         </>
                     )
                  )}
             </section>
+            )}
+
+            {/* 3. 首页分类导航 - all 状态下按分类分组展示链接 */}
+            {selectedCategory === 'all' && !searchQuery && (
+              <section className="space-y-8">
+                {(() => {
+                  const categoryTree = buildCategoryTree(categories);
+                  // 只显示有链接的分类
+                  return categoryTree
+                    .map(cat => {
+                      const catLinks = links.filter(l => l.categoryId === cat.id && !l.pinned);
+                      return { cat, catLinks };
+                    })
+                    .filter(({ catLinks }) => catLinks.length > 0)
+                    .map(({ cat, catLinks }) => (
+                      <div key={cat.id}>
+                        <div className="flex items-center justify-between mb-3">
+                          <button
+                            onClick={() => { setSelectedCategory(cat.id); }}
+                            className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
+                          >
+                            <Icon name={cat.icon || 'Folder'} size={16} />
+                            <span>{cat.name}</span>
+                            <span className="px-2 py-0.5 text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-full">
+                              {catLinks.length}
+                            </span>
+                          </button>
+                          <button
+                            onClick={() => { setSelectedCategory(cat.id); }}
+                            className="text-xs text-slate-400 hover:text-blue-500 cursor-pointer"
+                          >
+                            查看全部 →
+                          </button>
+                        </div>
+                        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                          {catLinks.slice(0, 12).map(link => renderLinkCard(link))}
+                        </div>
+                      </div>
+                    ));
+                })()}
+              </section>
+            )}
         </div>
       </main>
 
