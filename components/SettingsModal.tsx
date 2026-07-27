@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Save, Bot, Key, Globe, Sparkles, PauseCircle, Wrench, Box, Copy, Check, Settings, Clock, Lock, LayoutGrid, MessageCircle, Cloud, BookOpen, Upload, CloudCog, LogOut, Download } from 'lucide-react';
+import { X, Save, Bot, Key, Globe, Sparkles, PauseCircle, Wrench, Box, Copy, Check, Settings, Clock, Lock, LayoutGrid, MessageCircle, Cloud, BookOpen, Upload, CloudCog, LogOut, Download, Inbox, CheckCircle2, XCircle, ExternalLink, Loader2 } from 'lucide-react';
 import { AIConfig, LinkItem, PasswordExpiryConfig, MastodonConfig, WeatherConfig } from '../types';
 import { generateLinkDescription } from '../services/geminiService';
 import { toast } from './Toast';
@@ -28,7 +28,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     isOpen, onClose, config, onSave, links, onUpdateLinks, passwordExpiryConfig, onSavePasswordExpiry, authToken, showPinnedWebsites, onShowPinnedWebsitesChange, mastodonConfig, onMastodonConfigChange, weatherConfig, onWeatherConfigChange, onImportClick, onBackupClick
 }) => {
   console.log('SettingsModal rendering. isOpen:', isOpen, 'authToken:', authToken, 'config:', config);
-  const [activeTab, setActiveTab] = useState<'tools' | 'website'>('website');
+  const [activeTab, setActiveTab] = useState<'tools' | 'website' | 'review'>('website');
   const [localConfig, setLocalConfig] = useState<AIConfig>(config || {});
   const [localPasswordExpiryConfig, setLocalPasswordExpiryConfig] = useState<PasswordExpiryConfig>(passwordExpiryConfig || { value: 1, unit: 'week' });
   const [defaultViewMode, setDefaultViewMode] = useState<'compact' | 'detailed'>('compact');
@@ -56,6 +56,101 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const [authPassword, setAuthPassword] = useState('');
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
+
+  // ===== 申请审核 State =====
+  const [pendingSubmissions, setPendingSubmissions] = useState<any[]>([]);
+  const [loadingPending, setLoadingPending] = useState(false);
+  const [reviewCategories, setReviewCategories] = useState<any[]>([]);
+  const [processingId, setProcessingId] = useState<string | null>(null);
+
+  // 加载待审核申请
+  const loadPendingSubmissions = async () => {
+    if (!authToken) return;
+    setLoadingPending(true);
+    try {
+      const res = await fetch('/api/storage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-auth-password': authToken },
+        body: JSON.stringify({ operation: 'listPending' }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPendingSubmissions(Array.isArray(data) ? data : []);
+      }
+    } catch (e) {
+      console.error('加载待审核申请失败:', e);
+    } finally {
+      setLoadingPending(false);
+    }
+  };
+
+  // 加载分类列表（审核时选择目标分类）
+  const loadReviewCategories = async () => {
+    try {
+      const res = await fetch('/api/storage?getConfig=categories');
+      if (res.ok) {
+        const data = await res.json();
+        setReviewCategories(Array.isArray(data) ? data : []);
+      }
+    } catch (e) {
+      console.error('加载分类失败:', e);
+    }
+  };
+
+  // 通过审核
+  const handleApprove = async (id: string, categoryId: string) => {
+    if (!authToken) return;
+    setProcessingId(id);
+    try {
+      const res = await fetch('/api/storage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-auth-password': authToken },
+        body: JSON.stringify({ operation: 'approveLink', id, categoryId }),
+      });
+      if (res.ok) {
+        setPendingSubmissions(prev => prev.filter(p => p.id !== id));
+        toast('已通过审核并添加到导航', 'success');
+      } else {
+        toast('操作失败', 'error');
+      }
+    } catch (e) {
+      toast('操作失败', 'error');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  // 拒绝审核
+  const handleReject = async (id: string) => {
+    if (!authToken) return;
+    if (!confirm('确定拒绝这条申请吗？')) return;
+    setProcessingId(id);
+    try {
+      const res = await fetch('/api/storage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-auth-password': authToken },
+        body: JSON.stringify({ operation: 'rejectLink', id }),
+      });
+      if (res.ok) {
+        setPendingSubmissions(prev => prev.filter(p => p.id !== id));
+        toast('已拒绝该申请', 'success');
+      } else {
+        toast('操作失败', 'error');
+      }
+    } catch (e) {
+      toast('操作失败', 'error');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  // 切换到审核 tab 时加载数据
+  useEffect(() => {
+    if (isOpen && activeTab === 'review' && authToken) {
+      loadPendingSubmissions();
+      loadReviewCategories();
+    }
+  }, [isOpen, activeTab, authToken]);
 
   useEffect(() => {
     if (isOpen) {
@@ -494,6 +589,14 @@ document.addEventListener('DOMContentLoaded', async () => {
               >
                 <Wrench size={18} /> 扩展工具
               </button>
+              {authToken && (
+                <button
+                  onClick={() => setActiveTab('review')}
+                  className={`text-sm font-semibold flex items-center gap-2 pb-1 transition-colors ${activeTab === 'review' ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500' : 'text-slate-500 dark:text-slate-400'}`}
+                >
+                  <Inbox size={18} /> 申请审核
+                </button>
+              )}
             </div>
           <div className="flex items-center gap-2">
             <button
@@ -659,6 +762,93 @@ document.addEventListener('DOMContentLoaded', async () => {
                     </button>
                   </div>
                 )
+            )}
+
+            {/* ===== 申请审核 Tab ===== */}
+            {activeTab === 'review' && authToken && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">网址收录申请</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">访客通过「申请收录网址」提交的待审核链接</p>
+                  </div>
+                  <button
+                    onClick={loadPendingSubmissions}
+                    className="text-xs text-blue-500 hover:text-blue-600 cursor-pointer flex items-center gap-1"
+                  >
+                    <Loader2 size={12} className={loadingPending ? 'animate-spin' : 'hidden'} />
+                    刷新
+                  </button>
+                </div>
+
+                {loadingPending && pendingSubmissions.length === 0 ? (
+                  <div className="text-center py-10 text-slate-400">
+                    <Loader2 size={24} className="animate-spin mx-auto mb-2" />
+                    加载中...
+                  </div>
+                ) : pendingSubmissions.length === 0 ? (
+                  <div className="text-center py-10 text-slate-400">
+                    <Inbox size={40} className="mx-auto mb-3 opacity-30" />
+                    <p className="text-sm">暂无待审核申请</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {pendingSubmissions.map(item => (
+                      <div key={item.id} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-sm text-slate-800 dark:text-slate-100 truncate">{item.title}</span>
+                              <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-blue-500 shrink-0">
+                                <ExternalLink size={12} />
+                              </a>
+                            </div>
+                            <a href={item.url} target="_blank" rel="noopener noreferrer" className="block text-xs text-blue-500 hover:underline truncate mt-0.5">
+                              {item.url}
+                            </a>
+                            {item.description && (
+                              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">{item.description}</p>
+                            )}
+                            <p className="text-xs text-slate-400 mt-1">
+                              {new Date(item.submittedAt).toLocaleString('zh-CN')}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 mt-3">
+                          <select
+                            id={`cat-${item.id}`}
+                            defaultValue={item.categoryId || 'common'}
+                            className="flex-1 text-xs px-2 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 outline-none focus:ring-1 focus:ring-blue-500"
+                          >
+                            {reviewCategories.map(cat => (
+                              <option key={cat.id} value={cat.id}>{cat.name}</option>
+                            ))}
+                          </select>
+                          <button
+                            onClick={() => {
+                              const sel = document.getElementById(`cat-${item.id}`) as HTMLSelectElement;
+                              handleApprove(item.id, sel?.value || 'common');
+                            }}
+                            disabled={processingId === item.id}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                          >
+                            {processingId === item.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+                            通过
+                          </button>
+                          <button
+                            onClick={() => handleReject(item.id)}
+                            disabled={processingId === item.id}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-medium rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                          >
+                            <XCircle size={12} />
+                            拒绝
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
 
             {activeTab === 'website' && (

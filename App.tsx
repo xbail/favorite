@@ -50,8 +50,8 @@ const QRCodeModal = lazy(() => import('./components/QRCodeModal'));
 const SubmitLinkModal = lazy(() => import('./components/SubmitLinkModal'));
 
 // --- 配置项 ---
-// 项目核心仓库地址
-const GITHUB_REPO_URL = 'https://github.com/eallion/favorite';
+// 项目核心仓库地址（二开版，指向当前维护者仓库）
+const GITHUB_REPO_URL = 'https://github.com/xbail/favorite';
 
 const LOCAL_STORAGE_KEY = 'cloudnav_data_cache';
 const AUTH_KEY = 'cloudnav_auth_token';
@@ -2748,7 +2748,7 @@ function App() {
                  title="Fork this project on GitHub"
                >
                  <GitFork size={14} />
-                 <span>Favorite</span>
+                 <span>xbail/favorite</span>
                </a>
             </div>
         </div>
