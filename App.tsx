@@ -2935,8 +2935,7 @@ function App() {
                 </section>
             )}
 
-            {/* 2. Main Grid */}
-            {(selectedCategory !== 'all' || searchQuery) && (
+            {/* 2. Main Grid - 始终显示（首页/分类/搜索均展示链接网格） */}
             <section>
                  {(!pinnedLinks.length && !searchQuery && selectedCategory === 'all') && (
                     <div className="mb-6 p-5 rounded-2xl bg-white/70 dark:bg-slate-800/60 backdrop-blur-md border border-white/40 dark:border-slate-700/50 shadow-sm flex items-center justify-between">
@@ -3141,12 +3140,11 @@ function App() {
                                 }`}>
                                     {displayedLinks.map(link => renderLinkCard(link))}
                                 </div>
-                            )}
+            )}
                         </>
                     )
                  )}
             </section>
-            )}
         </div>
       </main>
 
