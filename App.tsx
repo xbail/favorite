@@ -67,21 +67,8 @@ function App() {
   const [links, setLinks] = useState<LinkItem[]>([]);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [categories, setCategories] = useState<Category[]>([]);
-  // Selected Category State - 动态默认值
-  const [selectedCategory, setSelectedCategory] = useState<string>(() => {
-    const uiConfig = getUIConfig();
-    const showPinned = uiConfig?.showPinnedWebsites ?? true;
-
-    // 如果显示置顶网站，默认选择 'all'
-    if (showPinned) {
-      return 'all';
-    }
-
-    // 如果隐藏置顶网站，选择第一个可用的分类
-    // 这里暂时返回 'all'，因为在组件初始化时 categories 还是空的
-    // 我们需要在 useEffect 中处理这个逻辑
-    return 'all';
-  });
+  // Selected Category State - 默认首页
+  const [selectedCategory, setSelectedCategory] = useState<string>('home');
   const [searchQuery, setSearchQuery] = useState('');
   const [darkMode, setDarkMode] = useState(() => {
     // 优先级：1. 用户个人偏好 > 2. 默认浅色模式
@@ -226,16 +213,6 @@ function App() {
     return uiConfig?.showPinnedWebsites ?? true;
   });
 
-  // 动态处理置顶网站设置变化时的分类切换
-  useEffect(() => {
-    if (showPinnedWebsites && selectedCategory !== 'all') {
-      // 显示置顶网站时，切换到 'all'
-      setSelectedCategory('all');
-    } else if (!showPinnedWebsites && selectedCategory === 'all') {
-      // 隐藏置顶网站时，切换到 'common'
-      setSelectedCategory('common');
-    }
-  }, [showPinnedWebsites]);
 
   // Context Menu State
   const [contextMenu, setContextMenu] = useState<{
@@ -2197,7 +2174,7 @@ function App() {
     }
 
     // In non-search mode, exclude pinned links since they have their own section
-    if (!searchQuery.trim() && selectedCategory === 'all') {
+    if (!searchQuery.trim() && (selectedCategory === 'all' || selectedCategory === 'home')) {
       result = result.filter(l => !l.pinned);
     }
 
@@ -2669,11 +2646,11 @@ function App() {
 
         {/* Categories List */}
         <div className="flex-1 overflow-y-auto p-4 space-y-1 scrollbar-hide">
-            {/* 首页按钮：始终显示，点击回到全部（all）视图 */}
+            {/* 首页按钮：显示所有分类概览 */}
             <button
-              onClick={() => { setSelectedCategory('all'); setSidebarOpen(false); }}
+              onClick={() => { setSelectedCategory('home'); setSidebarOpen(false); }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all cursor-pointer ${
-                selectedCategory === 'all'
+                selectedCategory === 'home'
                   ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'
               }`}
@@ -2682,19 +2659,18 @@ function App() {
               <span>首页</span>
             </button>
 
-            {showPinnedWebsites && (
-                <button
-                  onClick={() => { setSelectedCategory('all'); setSidebarOpen(false); }}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all cursor-pointer ${
-                    selectedCategory === 'all'
-                      ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium'
-                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'
-                  }`}
-                >
-                  <div className="p-1"><Icon name="LayoutGrid" size={18} /></div>
-                  <span>置顶网站</span>
-                </button>
-            )}
+            {/* 置顶网站按钮：只显示置顶链接 */}
+            <button
+              onClick={() => { setSelectedCategory('all'); setSidebarOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all cursor-pointer ${
+                selectedCategory === 'all'
+                  ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'
+              }`}
+            >
+              <div className="p-1"><Icon name="LayoutGrid" size={18} /></div>
+              <span>置顶网站</span>
+            </button>
 
             {/* 在线申请收录按钮（访客与管理员均可用） */}
             <button
@@ -2837,7 +2813,7 @@ function App() {
         <div className="flex-1 overflow-y-auto p-4 lg:p-8 space-y-8">
 
             {/* 首页 Hero */}
-            {!searchQuery && selectedCategory === 'all' && (
+            {!searchQuery && (selectedCategory === 'home' || selectedCategory === 'all') && (
               <div className="mb-8 flex flex-col items-center text-center sm:items-start sm:text-left">
                 <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-slate-800 via-slate-900 to-slate-700 dark:from-white dark:via-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
                   {aiConfig?.navigationName || aiConfig?.websiteTitle || '蜗牛导航'}
@@ -2932,7 +2908,7 @@ function App() {
             )}
 
             {/* 2. Main Grid - 仅在选中分类或搜索时显示单分类链接网格 */}
-            {(selectedCategory !== 'all' || searchQuery) && (
+            {((selectedCategory !== 'all' && selectedCategory !== 'home') || searchQuery) && (
             <section>
                  {(!pinnedLinks.length && !searchQuery && selectedCategory === 'all') && (
                     <div className="mb-6 p-5 rounded-2xl bg-white/70 dark:bg-slate-800/60 backdrop-blur-md border border-white/40 dark:border-slate-700/50 shadow-sm flex items-center justify-between">
@@ -3145,7 +3121,7 @@ function App() {
             )}
 
             {/* 3. 首页分类导航 - all 状态下按分类分组展示链接 */}
-            {selectedCategory === 'all' && !searchQuery && (
+            {selectedCategory === 'home' && !searchQuery && (
               <section className="space-y-8">
                 {(() => {
                   // 直接用 categories 数组，不依赖 buildCategoryTree
