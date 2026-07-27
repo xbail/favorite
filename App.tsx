@@ -3134,7 +3134,7 @@ function App() {
                   }
                   // 显示所有分类（即使没有链接也显示）
                   return categories.map(cat => {
-                    const catLinks = links.filter(l => l.categoryId === cat.id && !l.pinned);
+                    const catLinks = links.filter(l => l.categoryId === cat.id);
                     return (
                       <div key={cat.id}>
                         <div className="flex items-center justify-between mb-3">
