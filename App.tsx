@@ -6,7 +6,7 @@ import { ToastContainer, useToast } from './components/Toast';
 import {
   Search, Plus, Upload, Moon, Sun, Menu,
   Trash2, Edit2, Loader2, Cloud, CheckCircle2, AlertCircle,
-  Pin, Settings, Lock, CloudCog, Github, GitFork, GripVertical, Save, CheckSquare, LogOut, ExternalLink
+  Pin, Settings, Lock, CloudCog, Github, GitFork, GripVertical, Save, CheckSquare, LogOut, ExternalLink, Send
 } from 'lucide-react';
 import {
   DndContext,
@@ -2709,6 +2709,16 @@ function App() {
                 </button>
             )}
 
+            {/* 在线申请收录按钮（访客与管理员均可用） */}
+            <button
+              onClick={() => { setIsSubmitModalOpen(true); setSidebarOpen(false); }}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 transition-all cursor-pointer"
+              title="申请收录网址"
+            >
+              <div className="p-1"><Icon name="Send" size={18} /></div>
+              <span>申请收录</span>
+            </button>
+
             <div className="flex items-center justify-between pt-4 pb-2 px-4">
                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">分类目录</span>
                {authToken && (
@@ -3033,23 +3043,33 @@ function App() {
                                                   <Upload size={14} />
                                                   <span>批量移动</span>
                                               </button>
-                                              {batchMoveOpen && (
-                                                <>
-                                                  <div className="fixed inset-0 z-10" onClick={() => setBatchMoveOpen(false)} />
-                                                  <div className="absolute top-full right-0 mt-1 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 z-20 transition-all duration-200">
-                                                      {categories.filter(cat => cat.id !== selectedCategory).map(cat => (
-                                                          <button
-                                                              key={cat.id}
-                                                              onClick={() => { handleBatchMove(cat.id); setBatchMoveOpen(false); }}
-                                                              className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 first:rounded-t-lg last:rounded-b-lg cursor-pointer"
-                                                          >
-                                                              {cat.name}
-                                                          </button>
-                                                      ))}
-                                                  </div>
-                                                </>
-                                              )}
                                           </div>
+                                          {batchMoveOpen && (
+                                            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setBatchMoveOpen(false)}>
+                                              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-xs overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                                                <div className="p-4 border-b border-slate-100 dark:border-slate-700">
+                                                  <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">移动到分类</h3>
+                                                  <p className="text-xs text-slate-400 mt-0.5">已选 {selectedLinks.size} 个链接</p>
+                                                </div>
+                                                <div className="max-h-72 overflow-y-auto p-2">
+                                                  {categories.filter(cat => cat.id !== selectedCategory).length === 0 ? (
+                                                    <p className="text-center text-sm text-slate-400 py-6">没有其他可移动的分类</p>
+                                                  ) : categories.filter(cat => cat.id !== selectedCategory).map(cat => (
+                                                    <button
+                                                        key={cat.id}
+                                                        onClick={() => { handleBatchMove(cat.id); setBatchMoveOpen(false); }}
+                                                        className="w-full text-left px-3 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg cursor-pointer transition-colors"
+                                                    >
+                                                        {cat.name}
+                                                    </button>
+                                                  ))}
+                                                </div>
+                                                <div className="p-2 border-t border-slate-100 dark:border-slate-700">
+                                                  <button onClick={() => setBatchMoveOpen(false)} className="w-full px-3 py-2 text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 cursor-pointer">取消</button>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          )}
                                      </>
                                  ) : (
                                      <button

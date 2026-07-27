@@ -1,8 +1,8 @@
-# 蜗牛个人导航 - 腾讯云 EdgeOne Pages 版
+# 蜗牛个人导航 - EdgeOne Makers 二开版
 
-> 本项目完全由 AI 生成，我对项目中的代码一无所知。您可自由修改演绎。
+> 基于 [eallion/favorite](https://github.com/eallion/favorite) 二次开发，改用 EdgeOne Blob 存储（无需开通 KV），精简为仅简洁模式 + 站内搜索，新增访客在线申请收录与管理员审核闭环。
 
-**蜗牛个人导航**是一个基于 **React** + **Tailwind CSS** 构建的现代化云端导航/书签管理页面，专为 **Tencent Cloud EdgeOne Pages** 设计。它利用 EdgeOne Pages Functions 和 Blob 存储（无需开通 KV 命名空间），提供了一个无需维护服务器的 Serverless 导航解决方案。
+**蜗牛个人导航**是一个基于 **React** + **Tailwind CSS** 构建的现代化云端导航/书签管理页面，专为 **Tencent Cloud EdgeOne Makers** 设计。它利用 EdgeOne Pages Functions 和 Blob 存储（无需开通 KV 命名空间），提供了一个无需维护服务器的 Serverless 导航解决方案。
 
 ![CloudNav Screenshot](screenshots/preview.png)
 
